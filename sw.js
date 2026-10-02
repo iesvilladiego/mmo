@@ -22,7 +22,7 @@ self.addEventListener('activate', event => {
     event.waitUntil(
         caches.keys().then(names => {
             return Promise.all(
-                names.filter(name => name !== CACHE_NAME)
+                names.filter(name => name !== CACHE_NAME && name.startsWith('qr-scanner-'))
                     .map(name => caches.delete(name))
             );
         })
