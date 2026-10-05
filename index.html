@@ -226,6 +226,9 @@
     <header id="main-header" class="bg-blue-600 text-white shadow-md p-4 justify-between items-center z-10 sticky top-0 no-print" style="display: none;">
         <h1 class="text-xl font-bold flex items-center gap-2">
             <i class="fa-solid fa-id-badge"></i> Pisaporte V2
+            <!-- Chip con la version desplegada (leida del CACHE_NAME del service worker;
+                 oculto hasta que la version resuelve, p. ej. sin conexion) -->
+            <span id="app-version-chip" class="hidden text-[10px] font-semibold leading-4 bg-blue-700 px-2 py-0.5 rounded-md border border-blue-400/60" title="Versión desplegada (CACHE_NAME del service worker)">v—</span>
         </h1>
         <div class="flex items-center gap-3">
             <!-- Pill informativa del curso escolar activo.
@@ -7590,6 +7593,33 @@ ${stylesStr}
             }, 8000);
         }
         window.showToastWithAction = showToastWithAction;
+
+        // ================= CHIP DE VERSIÓN DESPLEGADA =================
+        // Muestra junto al título «Pisaporte V2» la versión indicada en el service
+        // worker (CACHE_NAME, p. ej. «mmo-v2.35» -> chip «v2.35»). Se descarga el
+        // propio sw.js con cache: 'no-store' para reflejar siempre la versión
+        // desplegada en ese momento (no una copia en caché HTTP). Si sw.js no es
+        // accesible (p. ej. sin conexión), el chip permanece oculto.
+        async function renderAppVersionChip() {
+            const chip = document.getElementById('app-version-chip');
+            if (!chip) return;
+            try {
+                const res = await fetch('sw.js', { cache: 'no-store' });
+                if (!res.ok) return;
+                const m = /CACHE_NAME\s*=\s*['"]([^'"]+)['"]/.exec(await res.text());
+                if (!m) return;
+                // Extraer la versión del nombre de caché: la parte posterior a «-v»
+                // (nomenclatura actual «mmo-vX.Y»; también funciona con la antigua
+                // «qr-scanner-vN»).
+                const version = m[1].split('-v').pop();
+                chip.textContent = `v${version}`;
+                chip.classList.remove('hidden');
+            } catch (e) {
+                // sw.js no disponible: dejar el chip oculto
+            }
+        }
+        renderAppVersionChip();
+        window.renderAppVersionChip = renderAppVersionChip;
 
         // ================= MODO DIAGNOSTICO (?debug=1) =================
         // Panel flotante para depurar desde el propio iPhone (Safari de escritorio
