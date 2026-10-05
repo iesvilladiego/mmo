@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mmo-v2.36';
+const CACHE_NAME = 'mmo-v2.37';
 const urlsToCache = [
     '/',
     '/index.html',

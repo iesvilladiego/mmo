@@ -834,37 +834,14 @@
                             <button id="btn-print-interval" onclick="printReport()" class="text-xs bg-blue-50 text-blue-700 px-3 py-1 rounded-md font-semibold hover:bg-blue-100 transition-colors"><i class="fa-solid fa-print"></i> PDF</button>
                         </div>
 
-                        <!-- Paso 1: Periodo (mismos modos que Por Tramos: dia concreto,
-                             semanas, mes pasado o intervalo personalizado) -->
+                        <!-- Paso 1: Fecha (dia concreto; el informe por intervalo es
+                             siempre de un unico dia, no hay selector de periodo) -->
                         <div class="space-y-2">
                             <label class="block text-[10px] font-bold text-blue-600 uppercase">
                                 <span class="inline-block w-4 h-4 bg-blue-600 text-white rounded-full text-[9px] leading-4 text-center mr-1">1</span>
-                                Periodo
+                                Fecha
                             </label>
-                            <select id="report-ti-range" class="w-full border border-gray-300 rounded-lg p-2 text-sm" onchange="onReportRangeChange('ti')">
-                                <option value="day">Un día (calendario)</option>
-                                <option value="current-week">Semana actual</option>
-                                <option value="last-week">Semana pasada</option>
-                                <option value="last-month">Mes pasado</option>
-                                <option value="custom">Intervalo personalizado</option>
-                            </select>
-                            <!-- Modo «Un día»: selector de fecha -->
-                            <div id="report-ti-day-wrap">
-                                <input type="date" id="report-ti-date" class="w-full border border-gray-300 rounded-lg p-2 text-sm" onchange="generateReport()">
-                            </div>
-                            <!-- Modo «Intervalo»: fecha de inicio y de fin -->
-                            <div id="report-ti-custom-wrap" class="grid grid-cols-2 gap-2 hidden">
-                                <div>
-                                    <label class="block text-[9px] text-gray-500 mb-0.5">Desde</label>
-                                    <input type="date" id="report-ti-date-start" class="w-full border border-gray-300 rounded-lg p-2 text-sm" onchange="generateReport()">
-                                </div>
-                                <div>
-                                    <label class="block text-[9px] text-gray-500 mb-0.5">Hasta</label>
-                                    <input type="date" id="report-ti-date-end" class="w-full border border-gray-300 rounded-lg p-2 text-sm" onchange="generateReport()">
-                                </div>
-                            </div>
-                            <!-- Resumen del periodo resuelto (ej: Del 15/09/2026 al 21/09/2026) -->
-                            <p id="report-ti-range-summary" class="text-[10px] text-blue-700 font-semibold hidden"></p>
+                            <input type="date" id="report-ti-date" class="w-full border border-gray-300 rounded-lg p-2 text-sm" onchange="generateReport()">
                         </div>
 
                         <!-- Paso 2: Botonera de unidades (seleccion multiple; para tutores se bloquea a su grupo) -->
@@ -955,7 +932,7 @@
                                 <i class="fa-solid fa-users"></i> Alumnado que salió al servicio
                             </h4>
                             <p class="text-2xl font-black text-amber-700" id="stat-ti-unique-students">0</p>
-                            <p class="text-[10px] text-amber-600">alumno(s) distinto(s) en el periodo e intervalo seleccionados</p>
+                            <p class="text-[10px] text-amber-600">alumno(s) distinto(s) en la fecha e intervalo seleccionados</p>
                         </div>
 
                         <!-- Aviso visual: alumnado repetido (se rellena/togglea desde
@@ -974,7 +951,6 @@
                                     <tr class="bg-gray-50 text-gray-600 text-xs uppercase border-b border-gray-200">
                                         <th class="p-3">Alumno</th>
                                         <th class="p-3">Unidad</th>
-                                        <th id="report-ti-th-date" class="p-3 hidden">Fecha</th>
                                         <th class="p-3">Hora</th>
                                         <th class="p-3">Estado</th>
                                         <th class="p-3">Por</th>
@@ -983,7 +959,7 @@
                                 <tbody id="report-ti-table-body" class="text-sm divide-y divide-gray-100"></tbody>
                             </table>
                             <div id="report-ti-empty" class="p-6 text-center text-gray-500 hidden">
-                                No hay registros para el periodo e intervalo horario seleccionados.
+                                No hay registros para la fecha e intervalo horario seleccionados.
                             </div>
                         </div>
                     </div>
@@ -2407,17 +2383,7 @@
             if (tsRangeSummary) tsRangeSummary.classList.add('hidden');
             const tsThDate = document.getElementById('report-ts-th-date');
             if (tsThDate) tsThDate.classList.add('hidden');
-            // Resetear la pestaña Por Intervalo: periodo a «Un día», horas vacías
-            const tiRangeSel = document.getElementById('report-ti-range');
-            if (tiRangeSel) tiRangeSel.value = 'day';
-            const tiDayWrap = document.getElementById('report-ti-day-wrap');
-            if (tiDayWrap) tiDayWrap.classList.remove('hidden');
-            const tiCustomWrap = document.getElementById('report-ti-custom-wrap');
-            if (tiCustomWrap) tiCustomWrap.classList.add('hidden');
-            const tiRangeSummary = document.getElementById('report-ti-range-summary');
-            if (tiRangeSummary) tiRangeSummary.classList.add('hidden');
-            const tiThDate = document.getElementById('report-ti-th-date');
-            if (tiThDate) tiThDate.classList.add('hidden');
+            // Resetear la pestaña Por Intervalo: horas del intervalo vacías
             const tiTimeStart = document.getElementById('report-ti-time-start');
             if (tiTimeStart) tiTimeStart.value = '';
             const tiTimeEnd = document.getElementById('report-ti-time-end');
@@ -6198,7 +6164,9 @@
             const timeStartEl = document.getElementById('report-ti-time-start');
             const timeEndEl = document.getElementById('report-ti-time-end');
 
-            // Periodo seleccionado en el Paso 1 (dia / semanas / meses / intervalo)
+            // Fecha seleccionada en el Paso 1 (dia concreto; el informe por intervalo
+            // es siempre de un unico dia). resolveReportRange sin selector de periodo
+            // resuelve el modo «day» y devuelve null si la fecha esta vacia.
             const range = resolveReportRange(null, 'ti');
             // Unidades seleccionadas en el Paso 2 (botonera multi-seleccion):
             // null = todas, [] = ninguna, [...] = lista concreta (tutores: su grupo)
@@ -6217,7 +6185,7 @@
             }
             const intervalLabel = intervalComplete ? `${minutesToHHMM(startMins)}-${minutesToHHMM(endMins)}` : '';
 
-            // Si el periodo no esta completo, no hay informe
+            // Si la fecha no esta elegida, no hay informe
             if (!range) {
                 document.getElementById('stat-ti-total').textContent = '0';
                 document.getElementById('stat-ti-auth').textContent = '0';
@@ -6227,29 +6195,12 @@
                 document.getElementById('report-ti-empty').classList.remove('hidden');
                 const repeatLegend0 = document.getElementById('report-ti-repeat-legend');
                 if (repeatLegend0) repeatLegend0.classList.add('hidden');
-                const summaryEl0 = document.getElementById('report-ti-range-summary');
-                if (summaryEl0) summaryEl0.classList.add('hidden');
-                const thDate0 = document.getElementById('report-ti-th-date');
-                if (thDate0) thDate0.classList.add('hidden');
                 window.currentFilteredLogs = [];
                 return;
             }
 
-            // Filtrar logs dentro del periodo (comparacion de cadenas YYYY-MM-DD)
-            let filtered = allLogs.filter(l => l.dateString && l.dateString >= range.start && l.dateString <= range.end);
-
-            // En periodos de varios dias, mostrar la columna Fecha en la tabla
-            const multiDay = range.start !== range.end;
-            const thDate = document.getElementById('report-ti-th-date');
-            if (thDate) thDate.classList.toggle('hidden', !multiDay);
-            // Resumen del periodo resuelto bajo el selector
-            const summaryEl = document.getElementById('report-ti-range-summary');
-            if (summaryEl) {
-                const msPerDay = 24 * 60 * 60 * 1000;
-                const days = Math.round((new Date(`${range.end}T00:00:00`) - new Date(`${range.start}T00:00:00`)) / msPerDay) + 1;
-                summaryEl.textContent = `${describeReportRange(range)} · ${days} ${days === 1 ? 'día' : 'días'}`;
-                summaryEl.classList.remove('hidden');
-            }
+            // Filtrar logs de la fecha seleccionada (comparacion de cadena YYYY-MM-DD)
+            let filtered = allLogs.filter(l => l.dateString && l.dateString === range.start);
 
             // Filtrar por unidades seleccionadas (null = todas; respeta tutor: solo su grupo)
             if (unitsFilter !== null) {
@@ -6293,10 +6244,7 @@
             window.currentFilteredLogs = filtered;
             // Guardar tambien los metadatos del informe para printReport
             window.__intervalReportMeta = {
-                rangeType: range.type,
-                rangeLabel: describeReportRange(range),
                 dateStr: range.start,
-                endDateStr: range.end,
                 unitsFilter, // null = todas, [] = ninguna, [...] = lista concreta
                 studentFilter,
                 authFilter,
@@ -6324,7 +6272,7 @@
                 if (repeatedStudents.size > 0) {
                     const topRepeat = [...repeatedStudents.values()].sort((a, b) => b.count - a.count)[0];
                     repeatLegendText.innerHTML =
-                        `Hay <b>${repeatedStudents.size}</b> alumno(s) que han ido <b>más de una vez</b> al servicio en este periodo ` +
+                        `Hay <b>${repeatedStudents.size}</b> alumno(s) que han ido <b>más de una vez</b> al servicio en la fecha seleccionada ` +
                         `(${filtered.length} salidas · ${uniqueStudentIds.size} alumnos distintos). ` +
                         `Sus filas aparecen resaltadas con el badge <b>×N</b>. Máximo: <b>${escapeHtml(topRepeat.name)}</b> con ${topRepeat.count} salidas.`;
                     repeatLegend.classList.remove('hidden');
@@ -6345,20 +6293,12 @@
             }
             emptyDiv.classList.add('hidden');
 
-            // Ordenar por fecha y luego por hora de registro (en informes de varios
-            // dias agrupa por jornada)
-            const sorted = [...filtered].sort((a, b) => {
-                const da = a.dateString || '';
-                const db = b.dateString || '';
-                if (da !== db) return da < db ? -1 : 1;
-                return (a.timestamp || 0) - (b.timestamp || 0);
-            });
+            // Ordenar por hora de registro (todo el informe es de una misma fecha)
+            const sorted = [...filtered].sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
 
             sorted.forEach(l => {
                 const d = new Date(l.timestamp);
                 const timeStr = d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
-                // Celda de fecha solo en informes de varios dias
-                const dateCell = multiDay ? `<td class="p-3 text-gray-500 whitespace-nowrap">${formatDateEs(l.dateString)}</td>` : '';
 
                 let statusHtml;
                 if (!l.requested) {
@@ -6383,7 +6323,6 @@
                     <tr class="${rowClass}">
                         <td class="p-3 font-medium text-gray-800">${nameHtml}</td>
                         <td class="p-3 text-gray-600">${escapeHtml(l.course || '-')}</td>
-                        ${dateCell}
                         <td class="p-3 text-gray-500 whitespace-nowrap">${timeStr}</td>
                         <td class="p-3">${statusHtml}</td>
                         <td class="p-3">${userHtml}</td>
@@ -6901,12 +6840,10 @@
         function printIntervalReport(printArea, escapeHtml) {
             const meta = window.__intervalReportMeta || {};
             const filteredLogs = window.currentFilteredLogs || [];
-            // En periodos de varios dias se añade la columna Fecha
-            const multiDay = !!meta.endDateStr && meta.endDateStr !== meta.dateStr;
 
             // Construir subtitulo
             const subtitleParts = [];
-            subtitleParts.push(`Periodo: ${escapeHtml(meta.rangeLabel || formatDateEs(meta.dateStr))}`);
+            subtitleParts.push(`Fecha: ${escapeHtml(formatDateEs(meta.dateStr))}`);
             const units = meta.unitsFilter;
             if (!units) {
                 subtitleParts.push('Unidades: Todas');
@@ -6933,14 +6870,8 @@
             const subtitle = subtitleParts.join(' | ');
 
             // Construir nombre de archivo descriptivo (sin caracteres problematicos)
-            // Dia unico:  Informe_Intervalo_20260815_1A_0915-1130_Todas.pdf
-            // Semana:     Informe_Intervalo_SemanaPasada_20260908-20260914_1A-2B_...pdf
-            const rangeNames = { 'current-week': 'SemanaActual', 'last-week': 'SemanaPasada', 'last-month': 'MesPasado' };
-            let datePart = (meta.dateStr || 'sinfecha').replace(/-/g, '');
-            if (meta.rangeType && meta.rangeType !== 'day' && meta.endDateStr) {
-                const seg = `${meta.dateStr.replace(/-/g, '')}-${meta.endDateStr.replace(/-/g, '')}`;
-                datePart = rangeNames[meta.rangeType] ? `${rangeNames[meta.rangeType]}_${seg}` : seg;
-            }
+            // Ej: Informe_Intervalo_20260815_1A_0915-1130_Todas.pdf
+            const datePart = (meta.dateStr || 'sinfecha').replace(/-/g, '');
             const groupPart = (!units)
                 ? 'Todas'
                 : (units.length === 0
@@ -7000,20 +6931,15 @@
             // alguno ha ido mas de una vez; se resalta en el PDF igual que en pantalla.
             const repeatedStudents = computeRepeatedStudents(filteredLogs);
 
-            // Ordenar logs por fecha y luego por hora de registro
-            const sorted = [...filteredLogs].sort((a, b) => {
-                const da = a.dateString || '';
-                const db = b.dateString || '';
-                if (da !== db) return da < db ? -1 : 1;
-                return (a.timestamp || 0) - (b.timestamp || 0);
-            });
+            // Ordenar logs por hora de registro (todo el informe es de una misma fecha)
+            const sorted = [...filteredLogs].sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
 
             // Nota explicativa solo cuando hay alumnado repetido
             let repeatNoteHtml = '';
             if (repeatedStudents.size > 0) {
                 const topRepeatPdf = [...repeatedStudents.values()].sort((a, b) => b.count - a.count)[0];
                 repeatNoteHtml =
-                    `<p class="rti-repeat-note"><b>${repeatedStudents.size}</b> alumno(s) han ido <b>más de una vez</b> al servicio en este periodo ` +
+                    `<p class="rti-repeat-note"><b>${repeatedStudents.size}</b> alumno(s) han ido <b>más de una vez</b> al servicio en la fecha seleccionada ` +
                     `(${filteredLogs.length} salidas · ${uniqueStudentIds.size} alumnos distintos). ` +
                     `Las filas resaltadas en ámbar son de alumnado repetido; el distintivo ×N indica su número de salidas. ` +
                     `Máximo: <b>${escapeHtml(topRepeatPdf.name)}</b> con ${topRepeatPdf.count} salidas.</p>`;
@@ -7037,7 +6963,6 @@
                         <tr>
                             <th>Alumno</th>
                             <th>Unidad</th>
-                            ${multiDay ? '<th>Fecha</th>' : ''}
                             <th>Hora</th>
                             <th>Estado</th>
                             <th>Por</th>
@@ -7048,7 +6973,6 @@
             sorted.forEach(l => {
                 const d = new Date(l.timestamp);
                 const timeStr = d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
-                const dateCell = multiDay ? `<td>${formatDateEs(l.dateString)}</td>` : '';
 
                 let statusHtml;
                 if (!l.requested) {
@@ -7071,7 +6995,6 @@
                 contentHtml += `<tr${rowClassPdf}>
                     <td>${nameCellPdf}</td>
                     <td>${escapeHtml(l.course || '-')}</td>
-                    ${dateCell}
                     <td>${timeStr}</td>
                     <td>${statusHtml}</td>
                     <td><span class="rti-sub">${userHtml}</span></td>
