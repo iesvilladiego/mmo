@@ -698,15 +698,22 @@
                             <p id="report-ts-range-summary" class="text-[10px] text-blue-700 font-semibold hidden"></p>
                         </div>
 
-                        <!-- Paso 2: Unidad (dropdown; para tutores se bloquea a su grupo) -->
+                        <!-- Paso 2: Botonera de unidades (seleccion multiple; para tutores se bloquea a su grupo) -->
                         <div class="space-y-2">
-                            <label class="block text-[10px] font-bold text-blue-600 uppercase">
-                                <span class="inline-block w-4 h-4 bg-blue-600 text-white rounded-full text-[9px] leading-4 text-center mr-1">2</span>
-                                Unidad
-                            </label>
-                            <select id="report-ts-group" class="w-full border border-gray-300 rounded-lg p-2 text-sm" onchange="generateReport()">
-                                <option value="ALL">Todas las unidades</option>
-                            </select>
+                            <div class="flex justify-between items-center">
+                                <label class="block text-[10px] font-bold text-blue-600 uppercase">
+                                    <span class="inline-block w-4 h-4 bg-blue-600 text-white rounded-full text-[9px] leading-4 text-center mr-1">2</span>
+                                    Unidades
+                                </label>
+                                <div id="report-ts-units-actions" class="flex gap-1">
+                                    <button type="button" onclick="selectAllTimeSlotUnits(true)" class="text-[10px] bg-blue-50 text-blue-700 px-2 py-0.5 rounded font-semibold hover:bg-blue-100">Todas</button>
+                                    <button type="button" onclick="selectAllTimeSlotUnits(false)" class="text-[10px] bg-gray-100 text-gray-600 px-2 py-0.5 rounded font-semibold hover:bg-gray-200">Ninguna</button>
+                                </div>
+                            </div>
+                            <div id="report-ts-units-buttons" class="flex flex-wrap gap-2">
+                                <!-- Botones de unidades generados dinamicamente -->
+                                <span class="text-xs text-gray-400 italic">No hay unidades disponibles</span>
+                            </div>
                         </div>
 
                         <!-- Paso 3: Tramos horarios (seleccion multiple) -->
@@ -2211,6 +2218,10 @@
             // Resetear botonera de unidades (volver a "todas")
             _selectedUnits = new Set();
             _allUnitsSelected = true;
+            // Resetear botonera de unidades de la pestaña Por Tramos (paralela a la
+            // de Alumnado): sin esto, la selección del usuario anterior quedaba activa.
+            _tsSelectedUnits = new Set();
+            _tsAllUnitsSelected = true;
             // Resetear botonera de tramos horarios (pestaña Por Tramos): sin esto, la
             // selección del usuario anterior quedaba activa para el siguiente.
             _selectedTimeSlots = new Set();
@@ -3958,7 +3969,7 @@
                 renderUnitsButtons();
                 updateStudentSelectorForSelectedUnits();
                 // Pestana Tramos: bloquear a su grupo
-                updateTimeSlotGroupSelector();
+                renderTimeSlotUnitButtons();
                 updateTimeSlotStudentSelector();
                 return;
             }
@@ -3984,8 +3995,8 @@
             renderUnitsButtons();
             // Sincronizar selector de alumnos con botonera
             updateStudentSelectorForSelectedUnits();
-            // Pestana Tramos: refrescar dropdown de unidades y selector de alumnos
-            updateTimeSlotGroupSelector();
+            // Pestana Tramos: refrescar botonera de unidades y selector de alumnos
+            renderTimeSlotUnitButtons();
             updateTimeSlotStudentSelector();
         }
 
@@ -4255,6 +4266,14 @@
         let _timeSlotsButtonsInitialized = false;
         let _allTimeSlotsForReport = []; // cache de alumnos filtrables
 
+        // Estado de la botonera de unidades de la pestaña Por Tramos (paralelo a
+        // _selectedUnits/_allUnitsSelected de la pestaña Alumnado, pero independiente:
+        // cada pestaña mantiene su propio filtro de unidades).
+        //   _tsSelectedUnits: Set con los nombres de las unidades seleccionadas
+        //   _tsAllUnitsSelected: true = todas seleccionadas (ignora _tsSelectedUnits)
+        let _tsSelectedUnits = new Set();
+        let _tsAllUnitsSelected = true; // al iniciar, todas seleccionadas (como el antiguo dropdown en «ALL»)
+
         // Construye la botonera de tramos horarios usando SCHOOL_TIME_SLOTS
         function initTimeSlotsButtonsIfNeeded() {
             const container = document.getElementById('report-ts-slots-buttons');
@@ -4325,7 +4344,7 @@
             });
         }
 
-        // Rellena el selector de alumnos de la pestana Tramos segun la unidad elegida
+        // Rellena el selector de alumnos de la pestana Tramos segun las unidades seleccionadas
         function updateTimeSlotStudentSelector() {
             const sel = document.getElementById('report-ts-student');
             const searchInput = document.getElementById('report-ts-student-search');
@@ -4333,31 +4352,31 @@
             const currentVal = sel.value;
             const prevSearch = searchInput ? searchInput.value : '';
 
-            // Filtrar por unidad del dropdown de la pestana Tramos
-            const groupFilter = document.getElementById('report-ts-group');
-            const groupVal = groupFilter ? groupFilter.value : 'ALL';
-
-            // Para tutores: forzar su grupo
-            let effectiveGroup = groupVal;
-            if (currentAppUser && currentAppUser.role === 'tutor') {
-                effectiveGroup = currentAppUser.tutorGroup || '(sin grupo)';
-            }
+            // Filtrar por las unidades de la botonera de la pestana Tramos
+            // (tutores: getSelectedTimeSlotUnitsForFilter ya devuelve su grupo)
+            const units = getSelectedTimeSlotUnitsForFilter();
 
             let students = allStudents;
-            if (effectiveGroup !== 'ALL') {
-                // Normalizar ambos lados para que variantes del mismo grupo coincidan
-                const normGroup = formatGroupNameForFile(effectiveGroup);
-                students = students.filter(s => formatGroupNameForFile(s.course) === normGroup);
+            if (units !== null) {
+                // units es array (puede ser vacio si "ninguna").
+                // Normalizar ambos lados para que variantes del mismo grupo
+                // ("1ºA" legacy vs "1º A" almacenado) coincidan.
+                const normUnits = units.map(u => formatGroupNameForFile(u));
+                students = students.filter(s => normUnits.includes(formatGroupNameForFile(s.course)));
             }
             students = [...students].sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'es'));
             _allTimeSlotsForReport = students;
 
-            // Texto de la opcion "todos"
+            // Texto de la opcion "todos" segun seleccion
             let allLabel;
-            if (effectiveGroup === 'ALL') {
+            if (units === null) {
                 allLabel = 'Todos los alumnos (todas las unidades)';
+            } else if (units.length === 0) {
+                allLabel = 'Ninguna unidad seleccionada';
+            } else if (units.length === 1) {
+                allLabel = `Toda la unidad (${units[0]})`;
             } else {
-                allLabel = `Toda la unidad (${effectiveGroup})`;
+                allLabel = `Todos los alumnos (${units.length} unidades)`;
             }
 
             // Aplicar filtro de buscador si hay texto
@@ -4371,9 +4390,11 @@
                 html += `<option value="${s.id}">${escapeHtml(s.name)} (${escapeHtml(s.course)})</option>`;
             });
             sel.innerHTML = html;
-            // Restaurar seleccion previa si sigue siendo valida
+            // Restaurar seleccion previa si sigue siendo valida; si no, volver a "ALL"
             if ([...sel.options].some(o => o.value === currentVal)) {
                 sel.value = currentVal;
+            } else {
+                sel.value = 'ALL';
             }
         }
         window.updateTimeSlotStudentSelector = updateTimeSlotStudentSelector;
@@ -4383,32 +4404,116 @@
             updateTimeSlotStudentSelector();
         };
 
-        // Rellena el dropdown de unidades de la pestana Tramos (paralelo a updateGroupSelectors)
-        function updateTimeSlotGroupSelector() {
-            const sel = document.getElementById('report-ts-group');
-            if (!sel) return;
-            const currentVal = sel.value;
-            if (currentAppUser && currentAppUser.role === 'tutor') {
+        // ================= BOTONERA DE UNIDADES (pestaña Por Tramos) =================
+        // Paralela a la botonera de la pestaña Alumnado (renderUnitsButtons y ss.),
+        // pero con estado propio (_tsSelectedUnits/_tsAllUnitsSelected) y accionando
+        // el informe por tramos. Sustituye al antiguo dropdown «report-ts-group».
+
+        // Rellena la botonera de unidades con los grupos disponibles
+        function renderTimeSlotUnitButtons() {
+            const container = document.getElementById('report-ts-units-buttons');
+            const actionsContainer = document.getElementById('report-ts-units-actions');
+            if (!container) return;
+            if (currentAppUser?.role === 'tutor') {
+                // Tutores: solo ven su grupo, no pueden elegir otros
+                // Ocultar botones Todas/Ninguna
+                if (actionsContainer) actionsContainer.classList.add('hidden');
                 const tg = currentAppUser.tutorGroup || '(sin grupo)';
-                sel.innerHTML = `<option value="${escapeHtml(tg)}">${escapeHtml(tg)}</option>`;
-                sel.disabled = true;
-            } else {
-                // Lista de unidades unicas ordenadas
-                const groups = [...new Set(allStudents.map(s => s.course))].sort((a, b) =>
-                    String(a).localeCompare(String(b), 'es', { numeric: true })
-                );
-                let html = `<option value="ALL">Todas las unidades</option>`;
-                groups.forEach(g => {
-                    html += `<option value="${escapeHtml(g)}">${escapeHtml(g)}</option>`;
-                });
-                sel.innerHTML = html;
-                sel.disabled = false;
-                if ([...sel.options].some(o => o.value === currentVal)) {
-                    sel.value = currentVal;
-                }
+                container.innerHTML = `<span class="text-xs text-gray-500 italic">Tu grupo: ${escapeHtml(tg)}</span>`;
+                _tsSelectedUnits = new Set([tg]);
+                _tsAllUnitsSelected = false;
+                return;
             }
+            const groups = [...new Set(allStudents.map(s => s.course))]
+                .sort((a, b) => String(a).localeCompare(String(b), 'es', { numeric: true }));
+            if (groups.length === 0) {
+                // Sin grupos: ocultar acciones y mostrar mensaje
+                if (actionsContainer) actionsContainer.classList.add('hidden');
+                container.innerHTML = '<span class="text-xs text-gray-400 italic">No hay unidades disponibles</span>';
+                return;
+            }
+            // Mostrar acciones Todas/Ninguna (por si estaban ocultas)
+            if (actionsContainer) actionsContainer.classList.remove('hidden');
+            container.innerHTML = '';
+            groups.forEach(g => {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.dataset.unit = g;
+                btn.textContent = g;
+                btn.className = 'ts-unit-btn px-3 py-1.5 rounded-full text-xs font-bold border transition-colors';
+                // Estado inicial: si _tsAllUnitsSelected, todas seleccionadas
+                const isSelected = _tsAllUnitsSelected || _tsSelectedUnits.has(g);
+                if (isSelected) {
+                    btn.classList.add('bg-blue-600', 'text-white', 'border-blue-600');
+                } else {
+                    btn.classList.add('bg-white', 'text-gray-500', 'border-gray-300', 'hover:bg-gray-50');
+                }
+                btn.onclick = () => toggleTimeSlotUnit(g);
+                container.appendChild(btn);
+            });
         }
-        window.updateTimeSlotGroupSelector = updateTimeSlotGroupSelector;
+        window.renderTimeSlotUnitButtons = renderTimeSlotUnitButtons;
+
+        // Toggle de seleccion de una unidad (mismo comportamiento que toggleUnitButton)
+        window.toggleTimeSlotUnit = (unitName) => {
+            if (_tsAllUnitsSelected) {
+                // Todas estaban seleccionadas: al clicar una, seleccionamos SOLO esa
+                _tsSelectedUnits = new Set([unitName]);
+                _tsAllUnitsSelected = false;
+            } else if (_tsSelectedUnits.has(unitName)) {
+                // Ya estaba seleccionada: la quitamos (permitiendo set vacio = ninguna)
+                _tsSelectedUnits.delete(unitName);
+            } else {
+                // No estaba: la anyadimos
+                _tsSelectedUnits.add(unitName);
+            }
+            updateTimeSlotUnitsVisual();
+            updateTimeSlotStudentSelector();
+            generateReport();
+        };
+
+        // Seleccionar todas o ninguna unidad
+        window.selectAllTimeSlotUnits = (selectAll) => {
+            if (selectAll) {
+                _tsAllUnitsSelected = true;
+                _tsSelectedUnits = new Set();
+            } else {
+                _tsAllUnitsSelected = false;
+                _tsSelectedUnits = new Set(); // vacio = ninguna
+            }
+            updateTimeSlotUnitsVisual();
+            updateTimeSlotStudentSelector();
+            generateReport();
+        };
+
+        // Actualiza el estilo visual de los botones segun el estado
+        function updateTimeSlotUnitsVisual() {
+            const buttons = document.querySelectorAll('#report-ts-units-buttons .ts-unit-btn');
+            buttons.forEach(btn => {
+                const g = btn.dataset.unit;
+                const isSelected = _tsAllUnitsSelected || _tsSelectedUnits.has(g);
+                btn.classList.remove('bg-blue-600', 'text-white', 'border-blue-600',
+                    'bg-white', 'text-gray-500', 'border-gray-300', 'hover:bg-gray-50');
+                if (isSelected) {
+                    btn.classList.add('bg-blue-600', 'text-white', 'border-blue-600');
+                } else {
+                    btn.classList.add('bg-white', 'text-gray-500', 'border-gray-300', 'hover:bg-gray-50');
+                }
+            });
+        }
+
+        // Devuelve la lista de unidades seleccionadas en la pestaña Por Tramos
+        //   null  = todas las unidades (no filtrar)
+        //   []    = ninguna unidad (filtrar todo a vacio)
+        //   [...] = lista de unidades concretas
+        function getSelectedTimeSlotUnitsForFilter() {
+            if (currentAppUser && currentAppUser.role === 'tutor') {
+                return [currentAppUser.tutorGroup || '(sin grupo)'];
+            }
+            if (_tsAllUnitsSelected) return null; // todas
+            return [..._tsSelectedUnits]; // puede ser vacio = ninguna
+        }
+        window.getSelectedTimeSlotUnitsForFilter = getSelectedTimeSlotUnitsForFilter;
 
         // Rellena el selector de alumnos segun las unidades seleccionadas
         function updateStudentSelectorForSelectedUnits() {
@@ -5469,13 +5574,14 @@
         }
 
         function generateTimeSlotReport() {
-            const groupSelect = document.getElementById('report-ts-group');
             const studentSelect = document.getElementById('report-ts-student');
             const authFilterSelect = document.getElementById('report-ts-auth-filter');
 
             // Periodo seleccionado en el Paso 1 (dia / semanas / meses / intervalo)
             const range = resolveReportRange(null, 'ts');
-            const groupFilter = groupSelect ? groupSelect.value : 'ALL';
+            // Unidades seleccionadas en el Paso 2 (botonera multi-seleccion):
+            // null = todas, [] = ninguna, [...] = lista concreta (tutores: su grupo)
+            const unitsFilter = getSelectedTimeSlotUnitsForFilter();
             const studentFilter = studentSelect ? studentSelect.value : 'ALL';
             const authFilter = authFilterSelect ? authFilterSelect.value : 'ALL';
             const selectedSlots = getSelectedTimeSlotsForFilter(); // array de ids
@@ -5514,15 +5620,15 @@
                 summaryEl.classList.remove('hidden');
             }
 
-            // Filtrar por unidad (respeta tutor: solo su grupo)
-            let effectiveGroup = groupFilter;
-            if (currentAppUser && currentAppUser.role === 'tutor') {
-                effectiveGroup = currentAppUser.tutorGroup || '(sin grupo)';
-            }
-            if (effectiveGroup && effectiveGroup !== 'ALL') {
-                // Normalizar ambos lados para que variantes del mismo grupo coincidan
-                const normGroup = formatGroupNameForFile(effectiveGroup);
-                filtered = filtered.filter(l => formatGroupNameForFile(l.course) === normGroup);
+            // Filtrar por unidades seleccionadas (null = todas; respeta tutor: solo su grupo)
+            if (unitsFilter !== null) {
+                if (unitsFilter.length === 0) {
+                    filtered = []; // Ninguna unidad: ningun log
+                } else {
+                    // Normalizar ambos lados para que variantes del mismo grupo coincidan
+                    const normUnits = unitsFilter.map(u => formatGroupNameForFile(u));
+                    filtered = filtered.filter(l => normUnits.includes(formatGroupNameForFile(l.course)));
+                }
             }
 
             // Filtrar por alumno concreto (opcional)
@@ -5567,7 +5673,7 @@
                 rangeLabel: describeReportRange(range),
                 dateStr: range.start,
                 endDateStr: range.end,
-                groupFilter: effectiveGroup,
+                unitsFilter, // null = todas, [] = ninguna, [...] = lista concreta
                 studentFilter,
                 authFilter,
                 selectedSlots
@@ -5976,7 +6082,14 @@
             // Construir subtitulo
             const subtitleParts = [];
             subtitleParts.push(`Periodo: ${escapeHtml(meta.rangeLabel || formatDateEs(meta.dateStr))}`);
-            subtitleParts.push(`Unidad: ${!meta.groupFilter || meta.groupFilter === 'ALL' ? 'Todas' : escapeHtml(meta.groupFilter)}`);
+            const units = meta.unitsFilter;
+            if (!units) {
+                subtitleParts.push('Unidades: Todas');
+            } else if (units.length === 0) {
+                subtitleParts.push('Unidades: Ninguna');
+            } else {
+                subtitleParts.push(`Unidades: ${escapeHtml(units.join(', '))}`);
+            }
             // Tramos seleccionados (ordenados segun SCHOOL_TIME_SLOTS)
             const slots = (meta.selectedSlots || []).map(id => {
                 const s = SCHOOL_TIME_SLOTS.find(x => x.id === id);
@@ -6007,8 +6120,11 @@
                 const seg = `${meta.dateStr.replace(/-/g, '')}-${meta.endDateStr.replace(/-/g, '')}`;
                 datePart = rangeNames[meta.rangeType] ? `${rangeNames[meta.rangeType]}_${seg}` : seg;
             }
-            const groupPart = (!meta.groupFilter || meta.groupFilter === 'ALL')
-                ? 'Todas' : sanitizeForFile(formatGroupNameForFile(meta.groupFilter));
+            const groupPart = (!units)
+                ? 'Todas'
+                : (units.length === 0
+                    ? 'Ninguna'
+                    : sanitizeForFile(units.map(u => formatGroupNameForFile(u)).join('-')));
             const slotsPart = slots.length > 0 ? sanitizeForFile(slots.join('-')) : 'SinTramos';
             let studentPart = 'Todos';
             if (meta.studentFilter && meta.studentFilter !== 'ALL') {
