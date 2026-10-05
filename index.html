@@ -226,6 +226,9 @@
     <header id="main-header" class="bg-blue-600 text-white shadow-md p-4 justify-between items-center z-10 sticky top-0 no-print" style="display: none;">
         <h1 class="text-xl font-bold flex items-center gap-2">
             <i class="fa-solid fa-id-badge"></i> Pisaporte V2
+            <!-- Chip con la version desplegada (leida del CACHE_NAME del service worker;
+                 oculto hasta que la version resuelve, p. ej. sin conexion) -->
+            <span id="app-version-chip" class="hidden text-[10px] font-semibold leading-4 bg-blue-700 px-2 py-0.5 rounded-md border border-blue-400/60" title="Versión desplegada (CACHE_NAME del service worker)">v—</span>
         </h1>
         <div class="flex items-center gap-3">
             <!-- Pill informativa del curso escolar activo.
@@ -522,6 +525,9 @@
                         <button id="tab-btn-timeslots" onclick="switchReportTab('timeslots')" class="flex-1 py-3 px-4 text-sm font-bold text-gray-500 bg-white border-b-2 border-transparent hover:bg-gray-50 transition-colors">
                             <i class="fa-solid fa-clock"></i> Por Tramos
                         </button>
+                        <button id="tab-btn-interval" onclick="switchReportTab('interval')" class="flex-1 py-3 px-4 text-sm font-bold text-gray-500 bg-white border-b-2 border-transparent hover:bg-gray-50 transition-colors">
+                            <i class="fa-solid fa-stopwatch"></i> Por Intervalo
+                        </button>
                     </div>
 
                     <!-- Contenido pestaña Alumnado -->
@@ -698,15 +704,22 @@
                             <p id="report-ts-range-summary" class="text-[10px] text-blue-700 font-semibold hidden"></p>
                         </div>
 
-                        <!-- Paso 2: Unidad (dropdown; para tutores se bloquea a su grupo) -->
+                        <!-- Paso 2: Botonera de unidades (seleccion multiple; para tutores se bloquea a su grupo) -->
                         <div class="space-y-2">
-                            <label class="block text-[10px] font-bold text-blue-600 uppercase">
-                                <span class="inline-block w-4 h-4 bg-blue-600 text-white rounded-full text-[9px] leading-4 text-center mr-1">2</span>
-                                Unidad
-                            </label>
-                            <select id="report-ts-group" class="w-full border border-gray-300 rounded-lg p-2 text-sm" onchange="generateReport()">
-                                <option value="ALL">Todas las unidades</option>
-                            </select>
+                            <div class="flex justify-between items-center">
+                                <label class="block text-[10px] font-bold text-blue-600 uppercase">
+                                    <span class="inline-block w-4 h-4 bg-blue-600 text-white rounded-full text-[9px] leading-4 text-center mr-1">2</span>
+                                    Unidades
+                                </label>
+                                <div id="report-ts-units-actions" class="flex gap-1">
+                                    <button type="button" onclick="selectAllTimeSlotUnits(true)" class="text-[10px] bg-blue-50 text-blue-700 px-2 py-0.5 rounded font-semibold hover:bg-blue-100">Todas</button>
+                                    <button type="button" onclick="selectAllTimeSlotUnits(false)" class="text-[10px] bg-gray-100 text-gray-600 px-2 py-0.5 rounded font-semibold hover:bg-gray-200">Ninguna</button>
+                                </div>
+                            </div>
+                            <div id="report-ts-units-buttons" class="flex flex-wrap gap-2">
+                                <!-- Botones de unidades generados dinamicamente -->
+                                <span class="text-xs text-gray-400 italic">No hay unidades disponibles</span>
+                            </div>
                         </div>
 
                         <!-- Paso 3: Tramos horarios (seleccion multiple) -->
@@ -810,6 +823,167 @@
                             </table>
                             <div id="report-ts-empty" class="p-6 text-center text-gray-500 hidden">
                                 No hay registros para el periodo y tramos seleccionados.
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Contenido pestaña Por Intervalo (salidas entre dos horas HH:MM) -->
+                    <div id="report-tab-interval" class="p-4 space-y-3 hidden">
+                        <!-- Cabecera con boton PDF (la tarjeta de filtros comun se oculta en esta pestana) -->
+                        <div class="flex justify-end">
+                            <button id="btn-print-interval" onclick="printReport()" class="text-xs bg-blue-50 text-blue-700 px-3 py-1 rounded-md font-semibold hover:bg-blue-100 transition-colors"><i class="fa-solid fa-print"></i> PDF</button>
+                        </div>
+
+                        <!-- Paso 1: Periodo (mismos modos que Por Tramos: dia concreto,
+                             semanas, mes pasado o intervalo personalizado) -->
+                        <div class="space-y-2">
+                            <label class="block text-[10px] font-bold text-blue-600 uppercase">
+                                <span class="inline-block w-4 h-4 bg-blue-600 text-white rounded-full text-[9px] leading-4 text-center mr-1">1</span>
+                                Periodo
+                            </label>
+                            <select id="report-ti-range" class="w-full border border-gray-300 rounded-lg p-2 text-sm" onchange="onReportRangeChange('ti')">
+                                <option value="day">Un día (calendario)</option>
+                                <option value="current-week">Semana actual</option>
+                                <option value="last-week">Semana pasada</option>
+                                <option value="last-month">Mes pasado</option>
+                                <option value="custom">Intervalo personalizado</option>
+                            </select>
+                            <!-- Modo «Un día»: selector de fecha -->
+                            <div id="report-ti-day-wrap">
+                                <input type="date" id="report-ti-date" class="w-full border border-gray-300 rounded-lg p-2 text-sm" onchange="generateReport()">
+                            </div>
+                            <!-- Modo «Intervalo»: fecha de inicio y de fin -->
+                            <div id="report-ti-custom-wrap" class="grid grid-cols-2 gap-2 hidden">
+                                <div>
+                                    <label class="block text-[9px] text-gray-500 mb-0.5">Desde</label>
+                                    <input type="date" id="report-ti-date-start" class="w-full border border-gray-300 rounded-lg p-2 text-sm" onchange="generateReport()">
+                                </div>
+                                <div>
+                                    <label class="block text-[9px] text-gray-500 mb-0.5">Hasta</label>
+                                    <input type="date" id="report-ti-date-end" class="w-full border border-gray-300 rounded-lg p-2 text-sm" onchange="generateReport()">
+                                </div>
+                            </div>
+                            <!-- Resumen del periodo resuelto (ej: Del 15/09/2026 al 21/09/2026) -->
+                            <p id="report-ti-range-summary" class="text-[10px] text-blue-700 font-semibold hidden"></p>
+                        </div>
+
+                        <!-- Paso 2: Botonera de unidades (seleccion multiple; para tutores se bloquea a su grupo) -->
+                        <div class="space-y-2">
+                            <div class="flex justify-between items-center">
+                                <label class="block text-[10px] font-bold text-blue-600 uppercase">
+                                    <span class="inline-block w-4 h-4 bg-blue-600 text-white rounded-full text-[9px] leading-4 text-center mr-1">2</span>
+                                    Unidades
+                                </label>
+                                <div id="report-ti-units-actions" class="flex gap-1">
+                                    <button type="button" onclick="selectAllIntervalUnits(true)" class="text-[10px] bg-blue-50 text-blue-700 px-2 py-0.5 rounded font-semibold hover:bg-blue-100">Todas</button>
+                                    <button type="button" onclick="selectAllIntervalUnits(false)" class="text-[10px] bg-gray-100 text-gray-600 px-2 py-0.5 rounded font-semibold hover:bg-gray-200">Ninguna</button>
+                                </div>
+                            </div>
+                            <div id="report-ti-units-buttons" class="flex flex-wrap gap-2">
+                                <!-- Botones de unidades generados dinamicamente -->
+                                <span class="text-xs text-gray-400 italic">No hay unidades disponibles</span>
+                            </div>
+                        </div>
+
+                        <!-- Paso 3: Intervalo horario (desde HH:MM hasta HH:MM) -->
+                        <div class="space-y-2">
+                            <label class="block text-[10px] font-bold text-blue-600 uppercase">
+                                <span class="inline-block w-4 h-4 bg-blue-600 text-white rounded-full text-[9px] leading-4 text-center mr-1">3</span>
+                                Intervalo horario
+                            </label>
+                            <div class="grid grid-cols-2 gap-2">
+                                <div>
+                                    <label class="block text-[9px] text-gray-500 mb-0.5">Desde</label>
+                                    <input type="time" id="report-ti-time-start" class="w-full border border-gray-300 rounded-lg p-2 text-sm" onchange="generateReport()">
+                                </div>
+                                <div>
+                                    <label class="block text-[9px] text-gray-500 mb-0.5">Hasta</label>
+                                    <input type="time" id="report-ti-time-end" class="w-full border border-gray-300 rounded-lg p-2 text-sm" onchange="generateReport()">
+                                </div>
+                            </div>
+                            <p class="text-[10px] text-gray-400 italic">Recoge las salidas registradas entre ambas horas (extremos incluidos) de cada día del periodo.</p>
+                        </div>
+
+                        <!-- Paso 4: Filtro de alumno (opcional) -->
+                        <div class="space-y-2">
+                            <label class="block text-[10px] font-bold text-blue-600 uppercase">
+                                <span class="inline-block w-4 h-4 bg-blue-600 text-white rounded-full text-[9px] leading-4 text-center mr-1">4</span>
+                                Alumno <span class="text-gray-400 font-normal normal-case">(opcional: deja vacío para ver todos)</span>
+                            </label>
+                            <div class="relative">
+                                <i class="fa-solid fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs"></i>
+                                <input type="text" id="report-ti-student-search" placeholder="Buscar alumno por nombre..." class="w-full border border-gray-300 rounded-lg pl-8 pr-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" oninput="filterIntervalStudentSelect()">
+                            </div>
+                            <select id="report-ti-student" class="w-full border border-gray-300 rounded-lg p-2 text-sm" onchange="generateReport()">
+                                <option value="ALL">Todos los alumnos</option>
+                            </select>
+                        </div>
+
+                        <!-- Paso 5: Filtro por estado de autorizacion -->
+                        <div class="space-y-2">
+                            <label class="block text-[10px] font-bold text-blue-600 uppercase">
+                                <span class="inline-block w-4 h-4 bg-blue-600 text-white rounded-full text-[9px] leading-4 text-center mr-1">5</span>
+                                Autorizacion
+                            </label>
+                            <select id="report-ti-auth-filter" class="w-full border border-gray-300 rounded-lg p-2 text-sm" onchange="generateReport()">
+                                <option value="ALL">Todas las salidas</option>
+                                <option value="authorized">Solo autorizadas</option>
+                                <option value="denied">Solo denegadas</option>
+                                <option value="notrequested">Solo «no solicito»</option>
+                            </select>
+                        </div>
+
+                        <!-- Stats globales -->
+                        <div class="grid grid-cols-3 gap-2">
+                            <div class="bg-blue-100 p-3 rounded-lg text-center">
+                                <p class="text-blue-800 text-[10px] font-bold uppercase">Salidas</p>
+                                <p class="text-xl font-black text-blue-600 mt-1" id="stat-ti-total">0</p>
+                            </div>
+                            <div class="bg-green-100 p-3 rounded-lg text-center">
+                                <p class="text-green-800 text-[10px] font-bold uppercase">Autorizadas</p>
+                                <p class="text-xl font-black text-green-600 mt-1" id="stat-ti-auth">0</p>
+                            </div>
+                            <div class="bg-red-100 p-3 rounded-lg text-center">
+                                <p class="text-red-800 text-[10px] font-bold uppercase">Denegadas</p>
+                                <p class="text-xl font-black text-red-600 mt-1" id="stat-ti-denied">0</p>
+                            </div>
+                        </div>
+
+                        <!-- Listado de alumnos unicos que salieron (resumen superior) -->
+                        <div class="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                            <h4 class="font-bold text-amber-800 text-xs mb-1 flex items-center gap-1">
+                                <i class="fa-solid fa-users"></i> Alumnado que salió al servicio
+                            </h4>
+                            <p class="text-2xl font-black text-amber-700" id="stat-ti-unique-students">0</p>
+                            <p class="text-[10px] text-amber-600">alumno(s) distinto(s) en el periodo e intervalo seleccionados</p>
+                        </div>
+
+                        <!-- Aviso visual: alumnado repetido (se rellena/togglea desde
+                             generateIntervalReport()). -->
+                        <div id="report-ti-repeat-legend" class="bg-amber-100 border border-amber-300 rounded-lg p-3 hidden">
+                            <p class="text-[11px] text-amber-900 leading-snug flex items-start gap-2">
+                                <i class="fa-solid fa-repeat mt-0.5"></i>
+                                <span id="report-ti-repeat-legend-text"></span>
+                            </p>
+                        </div>
+
+                        <!-- Tabla de registros (cada salida = una fila; sin columna Tramo) -->
+                        <div id="report-ti-table-wrapper" class="overflow-x-auto border border-gray-100 rounded-lg">
+                            <table class="w-full text-left border-collapse">
+                                <thead>
+                                    <tr class="bg-gray-50 text-gray-600 text-xs uppercase border-b border-gray-200">
+                                        <th class="p-3">Alumno</th>
+                                        <th class="p-3">Unidad</th>
+                                        <th id="report-ti-th-date" class="p-3 hidden">Fecha</th>
+                                        <th class="p-3">Hora</th>
+                                        <th class="p-3">Estado</th>
+                                        <th class="p-3">Por</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="report-ti-table-body" class="text-sm divide-y divide-gray-100"></tbody>
+                            </table>
+                            <div id="report-ti-empty" class="p-6 text-center text-gray-500 hidden">
+                                No hay registros para el periodo e intervalo horario seleccionados.
                             </div>
                         </div>
                     </div>
@@ -2211,9 +2385,17 @@
             // Resetear botonera de unidades (volver a "todas")
             _selectedUnits = new Set();
             _allUnitsSelected = true;
+            // Resetear botonera de unidades de la pestaña Por Tramos (paralela a la
+            // de Alumnado): sin esto, la selección del usuario anterior quedaba activa.
+            _tsSelectedUnits = new Set();
+            _tsAllUnitsSelected = true;
             // Resetear botonera de tramos horarios (pestaña Por Tramos): sin esto, la
             // selección del usuario anterior quedaba activa para el siguiente.
             _selectedTimeSlots = new Set();
+            // Resetear botonera de unidades de la pestaña Por Intervalo (paralela a la
+            // de Por Tramos): sin esto, la selección del usuario anterior quedaba activa.
+            _tiSelectedUnits = new Set();
+            _tiAllUnitsSelected = true;
             // Resetear el selector de periodo del informe por tramos (Paso 1) a «Un día»
             const tsRangeSel = document.getElementById('report-ts-range');
             if (tsRangeSel) tsRangeSel.value = 'day';
@@ -2225,6 +2407,21 @@
             if (tsRangeSummary) tsRangeSummary.classList.add('hidden');
             const tsThDate = document.getElementById('report-ts-th-date');
             if (tsThDate) tsThDate.classList.add('hidden');
+            // Resetear la pestaña Por Intervalo: periodo a «Un día», horas vacías
+            const tiRangeSel = document.getElementById('report-ti-range');
+            if (tiRangeSel) tiRangeSel.value = 'day';
+            const tiDayWrap = document.getElementById('report-ti-day-wrap');
+            if (tiDayWrap) tiDayWrap.classList.remove('hidden');
+            const tiCustomWrap = document.getElementById('report-ti-custom-wrap');
+            if (tiCustomWrap) tiCustomWrap.classList.add('hidden');
+            const tiRangeSummary = document.getElementById('report-ti-range-summary');
+            if (tiRangeSummary) tiRangeSummary.classList.add('hidden');
+            const tiThDate = document.getElementById('report-ti-th-date');
+            if (tiThDate) tiThDate.classList.add('hidden');
+            const tiTimeStart = document.getElementById('report-ti-time-start');
+            if (tiTimeStart) tiTimeStart.value = '';
+            const tiTimeEnd = document.getElementById('report-ti-time-end');
+            if (tiTimeEnd) tiTimeEnd.value = '';
             // Resetear el periodo del filtro común (Alumnado/Usuarios) a «Un día»
             const cmRangeSel = document.getElementById('report-cm-range');
             if (cmRangeSel) cmRangeSel.value = 'day';
@@ -3958,8 +4155,11 @@
                 renderUnitsButtons();
                 updateStudentSelectorForSelectedUnits();
                 // Pestana Tramos: bloquear a su grupo
-                updateTimeSlotGroupSelector();
+                renderTimeSlotUnitButtons();
                 updateTimeSlotStudentSelector();
+                // Pestana Por Intervalo: bloquear a su grupo
+                renderIntervalUnitButtons();
+                updateIntervalStudentSelector();
                 return;
             }
 
@@ -3984,9 +4184,12 @@
             renderUnitsButtons();
             // Sincronizar selector de alumnos con botonera
             updateStudentSelectorForSelectedUnits();
-            // Pestana Tramos: refrescar dropdown de unidades y selector de alumnos
-            updateTimeSlotGroupSelector();
+            // Pestana Tramos: refrescar botonera de unidades y selector de alumnos
+            renderTimeSlotUnitButtons();
             updateTimeSlotStudentSelector();
+            // Pestana Por Intervalo: refrescar botonera de unidades y selector de alumnos
+            renderIntervalUnitButtons();
+            updateIntervalStudentSelector();
         }
 
         // Cache de listas completas para el filtro de busqueda
@@ -4255,6 +4458,14 @@
         let _timeSlotsButtonsInitialized = false;
         let _allTimeSlotsForReport = []; // cache de alumnos filtrables
 
+        // Estado de la botonera de unidades de la pestaña Por Tramos (paralelo a
+        // _selectedUnits/_allUnitsSelected de la pestaña Alumnado, pero independiente:
+        // cada pestaña mantiene su propio filtro de unidades).
+        //   _tsSelectedUnits: Set con los nombres de las unidades seleccionadas
+        //   _tsAllUnitsSelected: true = todas seleccionadas (ignora _tsSelectedUnits)
+        let _tsSelectedUnits = new Set();
+        let _tsAllUnitsSelected = true; // al iniciar, todas seleccionadas (como el antiguo dropdown en «ALL»)
+
         // Construye la botonera de tramos horarios usando SCHOOL_TIME_SLOTS
         function initTimeSlotsButtonsIfNeeded() {
             const container = document.getElementById('report-ts-slots-buttons');
@@ -4325,7 +4536,7 @@
             });
         }
 
-        // Rellena el selector de alumnos de la pestana Tramos segun la unidad elegida
+        // Rellena el selector de alumnos de la pestana Tramos segun las unidades seleccionadas
         function updateTimeSlotStudentSelector() {
             const sel = document.getElementById('report-ts-student');
             const searchInput = document.getElementById('report-ts-student-search');
@@ -4333,31 +4544,31 @@
             const currentVal = sel.value;
             const prevSearch = searchInput ? searchInput.value : '';
 
-            // Filtrar por unidad del dropdown de la pestana Tramos
-            const groupFilter = document.getElementById('report-ts-group');
-            const groupVal = groupFilter ? groupFilter.value : 'ALL';
-
-            // Para tutores: forzar su grupo
-            let effectiveGroup = groupVal;
-            if (currentAppUser && currentAppUser.role === 'tutor') {
-                effectiveGroup = currentAppUser.tutorGroup || '(sin grupo)';
-            }
+            // Filtrar por las unidades de la botonera de la pestana Tramos
+            // (tutores: getSelectedTimeSlotUnitsForFilter ya devuelve su grupo)
+            const units = getSelectedTimeSlotUnitsForFilter();
 
             let students = allStudents;
-            if (effectiveGroup !== 'ALL') {
-                // Normalizar ambos lados para que variantes del mismo grupo coincidan
-                const normGroup = formatGroupNameForFile(effectiveGroup);
-                students = students.filter(s => formatGroupNameForFile(s.course) === normGroup);
+            if (units !== null) {
+                // units es array (puede ser vacio si "ninguna").
+                // Normalizar ambos lados para que variantes del mismo grupo
+                // ("1ºA" legacy vs "1º A" almacenado) coincidan.
+                const normUnits = units.map(u => formatGroupNameForFile(u));
+                students = students.filter(s => normUnits.includes(formatGroupNameForFile(s.course)));
             }
             students = [...students].sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'es'));
             _allTimeSlotsForReport = students;
 
-            // Texto de la opcion "todos"
+            // Texto de la opcion "todos" segun seleccion
             let allLabel;
-            if (effectiveGroup === 'ALL') {
+            if (units === null) {
                 allLabel = 'Todos los alumnos (todas las unidades)';
+            } else if (units.length === 0) {
+                allLabel = 'Ninguna unidad seleccionada';
+            } else if (units.length === 1) {
+                allLabel = `Toda la unidad (${units[0]})`;
             } else {
-                allLabel = `Toda la unidad (${effectiveGroup})`;
+                allLabel = `Todos los alumnos (${units.length} unidades)`;
             }
 
             // Aplicar filtro de buscador si hay texto
@@ -4371,9 +4582,11 @@
                 html += `<option value="${s.id}">${escapeHtml(s.name)} (${escapeHtml(s.course)})</option>`;
             });
             sel.innerHTML = html;
-            // Restaurar seleccion previa si sigue siendo valida
+            // Restaurar seleccion previa si sigue siendo valida; si no, volver a "ALL"
             if ([...sel.options].some(o => o.value === currentVal)) {
                 sel.value = currentVal;
+            } else {
+                sel.value = 'ALL';
             }
         }
         window.updateTimeSlotStudentSelector = updateTimeSlotStudentSelector;
@@ -4383,32 +4596,282 @@
             updateTimeSlotStudentSelector();
         };
 
-        // Rellena el dropdown de unidades de la pestana Tramos (paralelo a updateGroupSelectors)
-        function updateTimeSlotGroupSelector() {
-            const sel = document.getElementById('report-ts-group');
+        // ================= BOTONERA DE UNIDADES (pestaña Por Tramos) =================
+        // Paralela a la botonera de la pestaña Alumnado (renderUnitsButtons y ss.),
+        // pero con estado propio (_tsSelectedUnits/_tsAllUnitsSelected) y accionando
+        // el informe por tramos. Sustituye al antiguo dropdown «report-ts-group».
+
+        // Rellena la botonera de unidades con los grupos disponibles
+        function renderTimeSlotUnitButtons() {
+            const container = document.getElementById('report-ts-units-buttons');
+            const actionsContainer = document.getElementById('report-ts-units-actions');
+            if (!container) return;
+            if (currentAppUser?.role === 'tutor') {
+                // Tutores: solo ven su grupo, no pueden elegir otros
+                // Ocultar botones Todas/Ninguna
+                if (actionsContainer) actionsContainer.classList.add('hidden');
+                const tg = currentAppUser.tutorGroup || '(sin grupo)';
+                container.innerHTML = `<span class="text-xs text-gray-500 italic">Tu grupo: ${escapeHtml(tg)}</span>`;
+                _tsSelectedUnits = new Set([tg]);
+                _tsAllUnitsSelected = false;
+                return;
+            }
+            const groups = [...new Set(allStudents.map(s => s.course))]
+                .sort((a, b) => String(a).localeCompare(String(b), 'es', { numeric: true }));
+            if (groups.length === 0) {
+                // Sin grupos: ocultar acciones y mostrar mensaje
+                if (actionsContainer) actionsContainer.classList.add('hidden');
+                container.innerHTML = '<span class="text-xs text-gray-400 italic">No hay unidades disponibles</span>';
+                return;
+            }
+            // Mostrar acciones Todas/Ninguna (por si estaban ocultas)
+            if (actionsContainer) actionsContainer.classList.remove('hidden');
+            container.innerHTML = '';
+            groups.forEach(g => {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.dataset.unit = g;
+                btn.textContent = g;
+                btn.className = 'ts-unit-btn px-3 py-1.5 rounded-full text-xs font-bold border transition-colors';
+                // Estado inicial: si _tsAllUnitsSelected, todas seleccionadas
+                const isSelected = _tsAllUnitsSelected || _tsSelectedUnits.has(g);
+                if (isSelected) {
+                    btn.classList.add('bg-blue-600', 'text-white', 'border-blue-600');
+                } else {
+                    btn.classList.add('bg-white', 'text-gray-500', 'border-gray-300', 'hover:bg-gray-50');
+                }
+                btn.onclick = () => toggleTimeSlotUnit(g);
+                container.appendChild(btn);
+            });
+        }
+        window.renderTimeSlotUnitButtons = renderTimeSlotUnitButtons;
+
+        // Toggle de seleccion de una unidad (mismo comportamiento que toggleUnitButton)
+        window.toggleTimeSlotUnit = (unitName) => {
+            if (_tsAllUnitsSelected) {
+                // Todas estaban seleccionadas: al clicar una, seleccionamos SOLO esa
+                _tsSelectedUnits = new Set([unitName]);
+                _tsAllUnitsSelected = false;
+            } else if (_tsSelectedUnits.has(unitName)) {
+                // Ya estaba seleccionada: la quitamos (permitiendo set vacio = ninguna)
+                _tsSelectedUnits.delete(unitName);
+            } else {
+                // No estaba: la anyadimos
+                _tsSelectedUnits.add(unitName);
+            }
+            updateTimeSlotUnitsVisual();
+            updateTimeSlotStudentSelector();
+            generateReport();
+        };
+
+        // Seleccionar todas o ninguna unidad
+        window.selectAllTimeSlotUnits = (selectAll) => {
+            if (selectAll) {
+                _tsAllUnitsSelected = true;
+                _tsSelectedUnits = new Set();
+            } else {
+                _tsAllUnitsSelected = false;
+                _tsSelectedUnits = new Set(); // vacio = ninguna
+            }
+            updateTimeSlotUnitsVisual();
+            updateTimeSlotStudentSelector();
+            generateReport();
+        };
+
+        // Actualiza el estilo visual de los botones segun el estado
+        function updateTimeSlotUnitsVisual() {
+            const buttons = document.querySelectorAll('#report-ts-units-buttons .ts-unit-btn');
+            buttons.forEach(btn => {
+                const g = btn.dataset.unit;
+                const isSelected = _tsAllUnitsSelected || _tsSelectedUnits.has(g);
+                btn.classList.remove('bg-blue-600', 'text-white', 'border-blue-600',
+                    'bg-white', 'text-gray-500', 'border-gray-300', 'hover:bg-gray-50');
+                if (isSelected) {
+                    btn.classList.add('bg-blue-600', 'text-white', 'border-blue-600');
+                } else {
+                    btn.classList.add('bg-white', 'text-gray-500', 'border-gray-300', 'hover:bg-gray-50');
+                }
+            });
+        }
+
+        // Devuelve la lista de unidades seleccionadas en la pestaña Por Tramos
+        //   null  = todas las unidades (no filtrar)
+        //   []    = ninguna unidad (filtrar todo a vacio)
+        //   [...] = lista de unidades concretas
+        function getSelectedTimeSlotUnitsForFilter() {
+            if (currentAppUser && currentAppUser.role === 'tutor') {
+                return [currentAppUser.tutorGroup || '(sin grupo)'];
+            }
+            if (_tsAllUnitsSelected) return null; // todas
+            return [..._tsSelectedUnits]; // puede ser vacio = ninguna
+        }
+        window.getSelectedTimeSlotUnitsForFilter = getSelectedTimeSlotUnitsForFilter;
+
+        // ================= BOTONERA DE UNIDADES (pestaña Por Intervalo) =================
+        // Paralela a la botonera de la pestaña Por Tramos, con estado propio
+        // (_tiSelectedUnits/_tiAllUnitsSelected) y accionando el informe por intervalo.
+
+        // Estado de la botonera de unidades de la pestaña Por Intervalo
+        let _tiSelectedUnits = new Set();
+        let _tiAllUnitsSelected = true; // al iniciar, todas seleccionadas
+
+        // Rellena la botonera de unidades con los grupos disponibles
+        function renderIntervalUnitButtons() {
+            const container = document.getElementById('report-ti-units-buttons');
+            const actionsContainer = document.getElementById('report-ti-units-actions');
+            if (!container) return;
+            if (currentAppUser?.role === 'tutor') {
+                // Tutores: solo ven su grupo, no pueden elegir otros
+                if (actionsContainer) actionsContainer.classList.add('hidden');
+                const tg = currentAppUser.tutorGroup || '(sin grupo)';
+                container.innerHTML = `<span class="text-xs text-gray-500 italic">Tu grupo: ${escapeHtml(tg)}</span>`;
+                _tiSelectedUnits = new Set([tg]);
+                _tiAllUnitsSelected = false;
+                return;
+            }
+            const groups = [...new Set(allStudents.map(s => s.course))]
+                .sort((a, b) => String(a).localeCompare(String(b), 'es', { numeric: true }));
+            if (groups.length === 0) {
+                if (actionsContainer) actionsContainer.classList.add('hidden');
+                container.innerHTML = '<span class="text-xs text-gray-400 italic">No hay unidades disponibles</span>';
+                return;
+            }
+            if (actionsContainer) actionsContainer.classList.remove('hidden');
+            container.innerHTML = '';
+            groups.forEach(g => {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.dataset.unit = g;
+                btn.textContent = g;
+                btn.className = 'ti-unit-btn px-3 py-1.5 rounded-full text-xs font-bold border transition-colors';
+                const isSelected = _tiAllUnitsSelected || _tiSelectedUnits.has(g);
+                if (isSelected) {
+                    btn.classList.add('bg-blue-600', 'text-white', 'border-blue-600');
+                } else {
+                    btn.classList.add('bg-white', 'text-gray-500', 'border-gray-300', 'hover:bg-gray-50');
+                }
+                btn.onclick = () => toggleIntervalUnit(g);
+                container.appendChild(btn);
+            });
+        }
+        window.renderIntervalUnitButtons = renderIntervalUnitButtons;
+
+        // Toggle de seleccion de una unidad (mismo comportamiento que toggleTimeSlotUnit)
+        window.toggleIntervalUnit = (unitName) => {
+            if (_tiAllUnitsSelected) {
+                // Todas estaban seleccionadas: al clicar una, seleccionamos SOLO esa
+                _tiSelectedUnits = new Set([unitName]);
+                _tiAllUnitsSelected = false;
+            } else if (_tiSelectedUnits.has(unitName)) {
+                _tiSelectedUnits.delete(unitName);
+            } else {
+                _tiSelectedUnits.add(unitName);
+            }
+            updateIntervalUnitsVisual();
+            updateIntervalStudentSelector();
+            generateReport();
+        };
+
+        // Seleccionar todas o ninguna unidad
+        window.selectAllIntervalUnits = (selectAll) => {
+            if (selectAll) {
+                _tiAllUnitsSelected = true;
+                _tiSelectedUnits = new Set();
+            } else {
+                _tiAllUnitsSelected = false;
+                _tiSelectedUnits = new Set(); // vacio = ninguna
+            }
+            updateIntervalUnitsVisual();
+            updateIntervalStudentSelector();
+            generateReport();
+        };
+
+        // Actualiza el estilo visual de los botones segun el estado
+        function updateIntervalUnitsVisual() {
+            const buttons = document.querySelectorAll('#report-ti-units-buttons .ti-unit-btn');
+            buttons.forEach(btn => {
+                const g = btn.dataset.unit;
+                const isSelected = _tiAllUnitsSelected || _tiSelectedUnits.has(g);
+                btn.classList.remove('bg-blue-600', 'text-white', 'border-blue-600',
+                    'bg-white', 'text-gray-500', 'border-gray-300', 'hover:bg-gray-50');
+                if (isSelected) {
+                    btn.classList.add('bg-blue-600', 'text-white', 'border-blue-600');
+                } else {
+                    btn.classList.add('bg-white', 'text-gray-500', 'border-gray-300', 'hover:bg-gray-50');
+                }
+            });
+        }
+
+        // Devuelve la lista de unidades seleccionadas en la pestaña Por Intervalo
+        //   null  = todas las unidades (no filtrar)
+        //   []    = ninguna unidad (filtrar todo a vacio)
+        //   [...] = lista de unidades concretas
+        function getSelectedIntervalUnitsForFilter() {
+            if (currentAppUser && currentAppUser.role === 'tutor') {
+                return [currentAppUser.tutorGroup || '(sin grupo)'];
+            }
+            if (_tiAllUnitsSelected) return null; // todas
+            return [..._tiSelectedUnits]; // puede ser vacio = ninguna
+        }
+        window.getSelectedIntervalUnitsForFilter = getSelectedIntervalUnitsForFilter;
+
+        // Rellena el selector de alumnos de la pestana Por Intervalo segun las
+        // unidades seleccionadas
+        function updateIntervalStudentSelector() {
+            const sel = document.getElementById('report-ti-student');
+            const searchInput = document.getElementById('report-ti-student-search');
             if (!sel) return;
             const currentVal = sel.value;
-            if (currentAppUser && currentAppUser.role === 'tutor') {
-                const tg = currentAppUser.tutorGroup || '(sin grupo)';
-                sel.innerHTML = `<option value="${escapeHtml(tg)}">${escapeHtml(tg)}</option>`;
-                sel.disabled = true;
+            const prevSearch = searchInput ? searchInput.value : '';
+
+            // Filtrar por las unidades de la botonera de la pestana Por Intervalo
+            // (tutores: getSelectedIntervalUnitsForFilter ya devuelve su grupo)
+            const units = getSelectedIntervalUnitsForFilter();
+
+            let students = allStudents;
+            if (units !== null) {
+                // Normalizar ambos lados para que variantes del mismo grupo coincidan
+                const normUnits = units.map(u => formatGroupNameForFile(u));
+                students = students.filter(s => normUnits.includes(formatGroupNameForFile(s.course)));
+            }
+            students = [...students].sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'es'));
+
+            // Texto de la opcion "todos" segun seleccion
+            let allLabel;
+            if (units === null) {
+                allLabel = 'Todos los alumnos (todas las unidades)';
+            } else if (units.length === 0) {
+                allLabel = 'Ninguna unidad seleccionada';
+            } else if (units.length === 1) {
+                allLabel = `Toda la unidad (${units[0]})`;
             } else {
-                // Lista de unidades unicas ordenadas
-                const groups = [...new Set(allStudents.map(s => s.course))].sort((a, b) =>
-                    String(a).localeCompare(String(b), 'es', { numeric: true })
-                );
-                let html = `<option value="ALL">Todas las unidades</option>`;
-                groups.forEach(g => {
-                    html += `<option value="${escapeHtml(g)}">${escapeHtml(g)}</option>`;
-                });
-                sel.innerHTML = html;
-                sel.disabled = false;
-                if ([...sel.options].some(o => o.value === currentVal)) {
-                    sel.value = currentVal;
-                }
+                allLabel = `Todos los alumnos (${units.length} unidades)`;
+            }
+
+            // Aplicar filtro de buscador si hay texto
+            const search = (prevSearch || '').toLowerCase().trim();
+            const filtered = search
+                ? students.filter(s => (s.name || '').toLowerCase().includes(search))
+                : students;
+
+            let html = `<option value="ALL">${allLabel}</option>`;
+            filtered.forEach(s => {
+                html += `<option value="${s.id}">${escapeHtml(s.name)} (${escapeHtml(s.course)})</option>`;
+            });
+            sel.innerHTML = html;
+            // Restaurar seleccion previa si sigue siendo valida; si no, volver a "ALL"
+            if ([...sel.options].some(o => o.value === currentVal)) {
+                sel.value = currentVal;
+            } else {
+                sel.value = 'ALL';
             }
         }
-        window.updateTimeSlotGroupSelector = updateTimeSlotGroupSelector;
+        window.updateIntervalStudentSelector = updateIntervalStudentSelector;
+
+        // Filtra el selector de alumnos de Por Intervalo al escribir en el buscador
+        window.filterIntervalStudentSelect = () => {
+            updateIntervalStudentSelector();
+        };
 
         // Rellena el selector de alumnos segun las unidades seleccionadas
         function updateStudentSelectorForSelectedUnits() {
@@ -4474,16 +4937,18 @@
             const tabStudents = document.getElementById('report-tab-students');
             const tabUsers = document.getElementById('report-tab-users');
             const tabTimeSlots = document.getElementById('report-tab-timeslots');
+            const tabInterval = document.getElementById('report-tab-interval');
             const btnStudents = document.getElementById('tab-btn-students');
             const btnUsers = document.getElementById('tab-btn-users');
             const btnTimeSlots = document.getElementById('tab-btn-timeslots');
+            const btnInterval = document.getElementById('tab-btn-interval');
             const groupWrapper = document.getElementById('report-group-wrapper');
             const filtersCard = document.getElementById('report-filters-card');
 
             // Helper: ocultar todas las pestañas y desactivar todos los botones
             const hideAllTabs = () => {
-                [tabStudents, tabUsers, tabTimeSlots].forEach(t => t && t.classList.add('hidden'));
-                [btnStudents, btnUsers, btnTimeSlots].forEach(b => {
+                [tabStudents, tabUsers, tabTimeSlots, tabInterval].forEach(t => t && t.classList.add('hidden'));
+                [btnStudents, btnUsers, btnTimeSlots, btnInterval].forEach(b => {
                     if (!b) return;
                     b.classList.remove('text-blue-600', 'bg-blue-50', 'border-blue-600');
                     b.classList.add('text-gray-500', 'bg-white', 'border-transparent');
@@ -4523,9 +4988,21 @@
                 if (dateInput && !dateInput.value) {
                     dateInput.value = getLocalTodayString();
                 }
+            } else if (tabId === 'interval') {
+                activateTab(tabInterval, btnInterval);
+                // En Por Intervalo: la pestaña tiene sus propios filtros (dia, unidad,
+                // intervalo horario). Ocultar la tarjeta de filtros comun.
+                if (filtersCard) filtersCard.classList.add('hidden');
+                // Asegurar que el selector de alumno de la pestaña esté actualizado
+                updateIntervalStudentSelector();
+                // Asegurar que la fecha por defecto sea hoy si está vacía
+                const dateInputTi = document.getElementById('report-ti-date');
+                if (dateInputTi && !dateInputTi.value) {
+                    dateInputTi.value = getLocalTodayString();
+                }
             }
             // Tarjeta común (Alumnado/Usuarios): fecha por defecto de «Un día» = hoy
-            if (tabId !== 'timeslots') {
+            if (tabId !== 'timeslots' && tabId !== 'interval') {
                 const cmDate = document.getElementById('report-cm-date');
                 if (cmDate && !cmDate.value) cmDate.value = getLocalTodayString();
             }
@@ -5021,6 +5498,10 @@
             if (currentReportTab === 'timeslots') {
                 return generateTimeSlotReport();
             }
+            // Igual la pestana "Por Intervalo" (dia, unidades, intervalo HH:MM, alumno)
+            if (currentReportTab === 'interval') {
+                return generateIntervalReport();
+            }
 
             // Escape HTML para todos los textos interpolados en este informe
 
@@ -5469,13 +5950,14 @@
         }
 
         function generateTimeSlotReport() {
-            const groupSelect = document.getElementById('report-ts-group');
             const studentSelect = document.getElementById('report-ts-student');
             const authFilterSelect = document.getElementById('report-ts-auth-filter');
 
             // Periodo seleccionado en el Paso 1 (dia / semanas / meses / intervalo)
             const range = resolveReportRange(null, 'ts');
-            const groupFilter = groupSelect ? groupSelect.value : 'ALL';
+            // Unidades seleccionadas en el Paso 2 (botonera multi-seleccion):
+            // null = todas, [] = ninguna, [...] = lista concreta (tutores: su grupo)
+            const unitsFilter = getSelectedTimeSlotUnitsForFilter();
             const studentFilter = studentSelect ? studentSelect.value : 'ALL';
             const authFilter = authFilterSelect ? authFilterSelect.value : 'ALL';
             const selectedSlots = getSelectedTimeSlotsForFilter(); // array de ids
@@ -5514,15 +5996,15 @@
                 summaryEl.classList.remove('hidden');
             }
 
-            // Filtrar por unidad (respeta tutor: solo su grupo)
-            let effectiveGroup = groupFilter;
-            if (currentAppUser && currentAppUser.role === 'tutor') {
-                effectiveGroup = currentAppUser.tutorGroup || '(sin grupo)';
-            }
-            if (effectiveGroup && effectiveGroup !== 'ALL') {
-                // Normalizar ambos lados para que variantes del mismo grupo coincidan
-                const normGroup = formatGroupNameForFile(effectiveGroup);
-                filtered = filtered.filter(l => formatGroupNameForFile(l.course) === normGroup);
+            // Filtrar por unidades seleccionadas (null = todas; respeta tutor: solo su grupo)
+            if (unitsFilter !== null) {
+                if (unitsFilter.length === 0) {
+                    filtered = []; // Ninguna unidad: ningun log
+                } else {
+                    // Normalizar ambos lados para que variantes del mismo grupo coincidan
+                    const normUnits = unitsFilter.map(u => formatGroupNameForFile(u));
+                    filtered = filtered.filter(l => normUnits.includes(formatGroupNameForFile(l.course)));
+                }
             }
 
             // Filtrar por alumno concreto (opcional)
@@ -5567,7 +6049,7 @@
                 rangeLabel: describeReportRange(range),
                 dateStr: range.start,
                 endDateStr: range.end,
-                groupFilter: effectiveGroup,
+                unitsFilter, // null = todas, [] = ninguna, [...] = lista concreta
                 studentFilter,
                 authFilter,
                 selectedSlots
@@ -5681,6 +6163,236 @@
         }
         window.generateTimeSlotReport = generateTimeSlotReport;
 
+        // ================= INFORME POR INTERVALO HORARIO (pestaña Por Intervalo) =================
+        // Paralelo al informe por tramos, pero en lugar de tramos escolares filtra
+        // las salidas cuya hora de registro cae entre dos horas «HH:MM» del dia
+        // (extremos incluidos) para cada dia del periodo seleccionado.
+
+        // Convierte «HH:MM» (o «H:MM») a minutos desde medianoche; null si es invalido
+        function parseTimeToMinutes(v) {
+            if (!v) return null;
+            const m = /^(\d{1,2}):(\d{2})$/.exec(String(v).trim());
+            if (!m) return null;
+            const h = parseInt(m[1], 10);
+            const min = parseInt(m[2], 10);
+            if (h > 23 || min > 59) return null;
+            return h * 60 + min;
+        }
+
+        // Convierte minutos desde medianoche a «HH:MM» (para etiquetas y nombre de PDF)
+        function minutesToHHMM(mins) {
+            const h = Math.floor(mins / 60);
+            const m = mins % 60;
+            return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+        }
+
+        // Minutos desde medianoche (hora local) en que se registro la salida
+        function logMinutesOfDay(timestamp) {
+            const d = new Date(timestamp);
+            return d.getHours() * 60 + d.getMinutes();
+        }
+
+        function generateIntervalReport() {
+            const studentSelect = document.getElementById('report-ti-student');
+            const authFilterSelect = document.getElementById('report-ti-auth-filter');
+            const timeStartEl = document.getElementById('report-ti-time-start');
+            const timeEndEl = document.getElementById('report-ti-time-end');
+
+            // Periodo seleccionado en el Paso 1 (dia / semanas / meses / intervalo)
+            const range = resolveReportRange(null, 'ti');
+            // Unidades seleccionadas en el Paso 2 (botonera multi-seleccion):
+            // null = todas, [] = ninguna, [...] = lista concreta (tutores: su grupo)
+            const unitsFilter = getSelectedIntervalUnitsForFilter();
+            const studentFilter = studentSelect ? studentSelect.value : 'ALL';
+            const authFilter = authFilterSelect ? authFilterSelect.value : 'ALL';
+
+            // Intervalo horario del Paso 3 («HH:MM» -> minutos). Si falta o es
+            // invalida alguna de las dos horas, no hay resultados (igual que en Por
+            // Tramos con ningun tramo seleccionado). Si esta invertido, se corrige.
+            let startMins = parseTimeToMinutes(timeStartEl ? timeStartEl.value : '');
+            let endMins = parseTimeToMinutes(timeEndEl ? timeEndEl.value : '');
+            const intervalComplete = startMins !== null && endMins !== null;
+            if (intervalComplete && startMins > endMins) {
+                const t = startMins; startMins = endMins; endMins = t;
+            }
+            const intervalLabel = intervalComplete ? `${minutesToHHMM(startMins)}-${minutesToHHMM(endMins)}` : '';
+
+            // Si el periodo no esta completo, no hay informe
+            if (!range) {
+                document.getElementById('stat-ti-total').textContent = '0';
+                document.getElementById('stat-ti-auth').textContent = '0';
+                document.getElementById('stat-ti-denied').textContent = '0';
+                document.getElementById('stat-ti-unique-students').textContent = '0';
+                document.getElementById('report-ti-table-body').innerHTML = '';
+                document.getElementById('report-ti-empty').classList.remove('hidden');
+                const repeatLegend0 = document.getElementById('report-ti-repeat-legend');
+                if (repeatLegend0) repeatLegend0.classList.add('hidden');
+                const summaryEl0 = document.getElementById('report-ti-range-summary');
+                if (summaryEl0) summaryEl0.classList.add('hidden');
+                const thDate0 = document.getElementById('report-ti-th-date');
+                if (thDate0) thDate0.classList.add('hidden');
+                window.currentFilteredLogs = [];
+                return;
+            }
+
+            // Filtrar logs dentro del periodo (comparacion de cadenas YYYY-MM-DD)
+            let filtered = allLogs.filter(l => l.dateString && l.dateString >= range.start && l.dateString <= range.end);
+
+            // En periodos de varios dias, mostrar la columna Fecha en la tabla
+            const multiDay = range.start !== range.end;
+            const thDate = document.getElementById('report-ti-th-date');
+            if (thDate) thDate.classList.toggle('hidden', !multiDay);
+            // Resumen del periodo resuelto bajo el selector
+            const summaryEl = document.getElementById('report-ti-range-summary');
+            if (summaryEl) {
+                const msPerDay = 24 * 60 * 60 * 1000;
+                const days = Math.round((new Date(`${range.end}T00:00:00`) - new Date(`${range.start}T00:00:00`)) / msPerDay) + 1;
+                summaryEl.textContent = `${describeReportRange(range)} · ${days} ${days === 1 ? 'día' : 'días'}`;
+                summaryEl.classList.remove('hidden');
+            }
+
+            // Filtrar por unidades seleccionadas (null = todas; respeta tutor: solo su grupo)
+            if (unitsFilter !== null) {
+                if (unitsFilter.length === 0) {
+                    filtered = []; // Ninguna unidad: ningun log
+                } else {
+                    // Normalizar ambos lados para que variantes del mismo grupo coincidan
+                    const normUnits = unitsFilter.map(u => formatGroupNameForFile(u));
+                    filtered = filtered.filter(l => normUnits.includes(formatGroupNameForFile(l.course)));
+                }
+            }
+
+            // Filtrar por alumno concreto (opcional)
+            if (studentFilter && studentFilter !== 'ALL') {
+                filtered = filtered.filter(l => l.studentId === studentFilter);
+            }
+
+            // Filtrar por intervalo horario: la hora de registro (HH:MM, hora local)
+            // debe caer dentro del intervalo, extremos incluidos. Sin ambas horas no
+            // hay resultados.
+            if (intervalComplete) {
+                filtered = filtered.filter(l => {
+                    if (!l.timestamp) return false;
+                    const mins = logMinutesOfDay(l.timestamp);
+                    return mins >= startMins && mins <= endMins;
+                });
+            } else {
+                filtered = [];
+            }
+
+            // Filtrar por estado de autorizacion (paso 5).
+            if (authFilter === 'authorized') {
+                filtered = filtered.filter(l => l.requested && l.authorized);
+            } else if (authFilter === 'denied') {
+                filtered = filtered.filter(l => l.requested && !l.authorized);
+            } else if (authFilter === 'notrequested') {
+                filtered = filtered.filter(l => !l.requested);
+            }
+
+            // Guardar para que printReport() pueda reutilizarlos
+            window.currentFilteredLogs = filtered;
+            // Guardar tambien los metadatos del informe para printReport
+            window.__intervalReportMeta = {
+                rangeType: range.type,
+                rangeLabel: describeReportRange(range),
+                dateStr: range.start,
+                endDateStr: range.end,
+                unitsFilter, // null = todas, [] = ninguna, [...] = lista concreta
+                studentFilter,
+                authFilter,
+                intervalLabel, // «HH:MM-HH:MM» o '' si el intervalo esta incompleto
+                intervalComplete
+            };
+
+            // ============ STATS ============
+            const reqLogs = filtered.filter(l => l.requested);
+            const authLogs = reqLogs.filter(l => l.authorized);
+            const denLogs = reqLogs.filter(l => !l.authorized);
+            // Alumnos unicos que salieron (cualquier registro, autorizado o no)
+            const uniqueStudentIds = new Set(filtered.map(l => l.studentId));
+
+            document.getElementById('stat-ti-total').textContent = filtered.length;
+            document.getElementById('stat-ti-auth').textContent = authLogs.length;
+            document.getElementById('stat-ti-denied').textContent = denLogs.length;
+            document.getElementById('stat-ti-unique-students').textContent = uniqueStudentIds.size;
+
+            // ============ ALUMNADO REPETIDO (ha ido mas de una vez) ============
+            const repeatedStudents = computeRepeatedStudents(filtered);
+            const repeatLegend = document.getElementById('report-ti-repeat-legend');
+            const repeatLegendText = document.getElementById('report-ti-repeat-legend-text');
+            if (repeatLegend && repeatLegendText) {
+                if (repeatedStudents.size > 0) {
+                    const topRepeat = [...repeatedStudents.values()].sort((a, b) => b.count - a.count)[0];
+                    repeatLegendText.innerHTML =
+                        `Hay <b>${repeatedStudents.size}</b> alumno(s) que han ido <b>más de una vez</b> al servicio en este periodo ` +
+                        `(${filtered.length} salidas · ${uniqueStudentIds.size} alumnos distintos). ` +
+                        `Sus filas aparecen resaltadas con el badge <b>×N</b>. Máximo: <b>${escapeHtml(topRepeat.name)}</b> con ${topRepeat.count} salidas.`;
+                    repeatLegend.classList.remove('hidden');
+                } else {
+                    repeatLegendText.textContent = '';
+                    repeatLegend.classList.add('hidden');
+                }
+            }
+
+            // ============ TABLA ============
+            const tbody = document.getElementById('report-ti-table-body');
+            const emptyDiv = document.getElementById('report-ti-empty');
+            tbody.innerHTML = '';
+
+            if (filtered.length === 0) {
+                emptyDiv.classList.remove('hidden');
+                return;
+            }
+            emptyDiv.classList.add('hidden');
+
+            // Ordenar por fecha y luego por hora de registro (en informes de varios
+            // dias agrupa por jornada)
+            const sorted = [...filtered].sort((a, b) => {
+                const da = a.dateString || '';
+                const db = b.dateString || '';
+                if (da !== db) return da < db ? -1 : 1;
+                return (a.timestamp || 0) - (b.timestamp || 0);
+            });
+
+            sorted.forEach(l => {
+                const d = new Date(l.timestamp);
+                const timeStr = d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+                // Celda de fecha solo en informes de varios dias
+                const dateCell = multiDay ? `<td class="p-3 text-gray-500 whitespace-nowrap">${formatDateEs(l.dateString)}</td>` : '';
+
+                let statusHtml;
+                if (!l.requested) {
+                    statusHtml = '<span class="text-gray-500">No solicitó</span>';
+                } else if (l.authorized) {
+                    statusHtml = '<span class="text-green-700 font-bold">Autorizada</span>';
+                } else {
+                    statusHtml = '<span class="text-red-700 font-bold">Denegada</span>';
+                }
+
+                const userHtml = l.userName ? `<span class="text-gray-500 text-xs">${escapeHtml(l.userName)}</span>` : '<span class="text-gray-300 text-xs italic">—</span>';
+
+                // Alumno repetido (2+ salidas en el periodo): fila ambar + badge ×N
+                const repeatKey = l.studentId || ('name:' + (l.studentName || 'Alumno desconocido'));
+                const repeatInfo = repeatedStudents.get(repeatKey);
+                const rowClass = repeatInfo ? 'bg-amber-50 hover:bg-amber-100' : 'hover:bg-gray-50';
+                const nameHtml = repeatInfo
+                    ? `${escapeHtml(l.studentName || 'Alumno desconocido')}${repeatBadgeHtml(repeatInfo.count)}`
+                    : escapeHtml(l.studentName || 'Alumno desconocido');
+
+                tbody.insertAdjacentHTML('beforeend', `
+                    <tr class="${rowClass}">
+                        <td class="p-3 font-medium text-gray-800">${nameHtml}</td>
+                        <td class="p-3 text-gray-600">${escapeHtml(l.course || '-')}</td>
+                        ${dateCell}
+                        <td class="p-3 text-gray-500 whitespace-nowrap">${timeStr}</td>
+                        <td class="p-3">${statusHtml}</td>
+                        <td class="p-3">${userHtml}</td>
+                    </tr>
+                `);
+            });
+        }
+        window.generateIntervalReport = generateIntervalReport;
+
         window.printReport = () => {
             if (!window.currentFilteredLogs || window.currentFilteredLogs.length === 0) return showToast("No hay datos.");
             const printArea = document.getElementById('print-area');
@@ -5691,6 +6403,11 @@
             // ============ PESTAÑA TRAMOS HORARIOS (PDF propio) ============
             if (currentReportTab === 'timeslots') {
                 return printTimeSlotReport(printArea, escapeHtml);
+            }
+
+            // ============ PESTAÑA POR INTERVALO (PDF propio) ============
+            if (currentReportTab === 'interval') {
+                return printIntervalReport(printArea, escapeHtml);
             }
 
             // Etiqueta del periodo resuelto (la guarda generateReport)
@@ -5976,7 +6693,14 @@
             // Construir subtitulo
             const subtitleParts = [];
             subtitleParts.push(`Periodo: ${escapeHtml(meta.rangeLabel || formatDateEs(meta.dateStr))}`);
-            subtitleParts.push(`Unidad: ${!meta.groupFilter || meta.groupFilter === 'ALL' ? 'Todas' : escapeHtml(meta.groupFilter)}`);
+            const units = meta.unitsFilter;
+            if (!units) {
+                subtitleParts.push('Unidades: Todas');
+            } else if (units.length === 0) {
+                subtitleParts.push('Unidades: Ninguna');
+            } else {
+                subtitleParts.push(`Unidades: ${escapeHtml(units.join(', '))}`);
+            }
             // Tramos seleccionados (ordenados segun SCHOOL_TIME_SLOTS)
             const slots = (meta.selectedSlots || []).map(id => {
                 const s = SCHOOL_TIME_SLOTS.find(x => x.id === id);
@@ -6007,8 +6731,11 @@
                 const seg = `${meta.dateStr.replace(/-/g, '')}-${meta.endDateStr.replace(/-/g, '')}`;
                 datePart = rangeNames[meta.rangeType] ? `${rangeNames[meta.rangeType]}_${seg}` : seg;
             }
-            const groupPart = (!meta.groupFilter || meta.groupFilter === 'ALL')
-                ? 'Todas' : sanitizeForFile(formatGroupNameForFile(meta.groupFilter));
+            const groupPart = (!units)
+                ? 'Todas'
+                : (units.length === 0
+                    ? 'Ninguna'
+                    : sanitizeForFile(units.map(u => formatGroupNameForFile(u)).join('-')));
             const slotsPart = slots.length > 0 ? sanitizeForFile(slots.join('-')) : 'SinTramos';
             let studentPart = 'Todos';
             if (meta.studentFilter && meta.studentFilter !== 'ALL') {
@@ -6167,6 +6894,202 @@
             startPrintWithCleanup(printArea, originalTitle);
         }
         window.printTimeSlotReport = printTimeSlotReport;
+
+        // ================= PDF INFORME POR INTERVALO HORARIO =================
+        // Paralelo a printTimeSlotReport: mismo layout (.rti-*), pero el filtro
+        // temporal es un intervalo «HH:MM-HH:MM» y la tabla no lleva columna Tramo.
+        function printIntervalReport(printArea, escapeHtml) {
+            const meta = window.__intervalReportMeta || {};
+            const filteredLogs = window.currentFilteredLogs || [];
+            // En periodos de varios dias se añade la columna Fecha
+            const multiDay = !!meta.endDateStr && meta.endDateStr !== meta.dateStr;
+
+            // Construir subtitulo
+            const subtitleParts = [];
+            subtitleParts.push(`Periodo: ${escapeHtml(meta.rangeLabel || formatDateEs(meta.dateStr))}`);
+            const units = meta.unitsFilter;
+            if (!units) {
+                subtitleParts.push('Unidades: Todas');
+            } else if (units.length === 0) {
+                subtitleParts.push('Unidades: Ninguna');
+            } else {
+                subtitleParts.push(`Unidades: ${escapeHtml(units.join(', '))}`);
+            }
+            // Intervalo horario aplicado (extremos incluidos)
+            subtitleParts.push(`Intervalo: ${meta.intervalLabel ? escapeHtml(meta.intervalLabel) : 'Sin definir'}`);
+            if (meta.studentFilter && meta.studentFilter !== 'ALL') {
+                const s = allStudents.find(x => x.id === meta.studentFilter);
+                subtitleParts.push(`Alumno: ${s ? escapeHtml(s.name) : 'desconocido'}`);
+            }
+            // Estado de autorizacion (paso 5)
+            const authLabels = {
+                ALL: 'Todas',
+                authorized: 'Solo autorizadas',
+                denied: 'Solo denegadas',
+                notrequested: 'Solo «no solicitó»'
+            };
+            const authLabel = authLabels[meta.authFilter] || 'Todas';
+            subtitleParts.push(`Autorización: ${escapeHtml(authLabel)}`);
+            const subtitle = subtitleParts.join(' | ');
+
+            // Construir nombre de archivo descriptivo (sin caracteres problematicos)
+            // Dia unico:  Informe_Intervalo_20260815_1A_0915-1130_Todas.pdf
+            // Semana:     Informe_Intervalo_SemanaPasada_20260908-20260914_1A-2B_...pdf
+            const rangeNames = { 'current-week': 'SemanaActual', 'last-week': 'SemanaPasada', 'last-month': 'MesPasado' };
+            let datePart = (meta.dateStr || 'sinfecha').replace(/-/g, '');
+            if (meta.rangeType && meta.rangeType !== 'day' && meta.endDateStr) {
+                const seg = `${meta.dateStr.replace(/-/g, '')}-${meta.endDateStr.replace(/-/g, '')}`;
+                datePart = rangeNames[meta.rangeType] ? `${rangeNames[meta.rangeType]}_${seg}` : seg;
+            }
+            const groupPart = (!units)
+                ? 'Todas'
+                : (units.length === 0
+                    ? 'Ninguna'
+                    : sanitizeForFile(units.map(u => formatGroupNameForFile(u)).join('-')));
+            const intervalPart = meta.intervalLabel ? meta.intervalLabel.replace(/:/g, '') : 'SinIntervalo';
+            let studentPart = 'Todos';
+            if (meta.studentFilter && meta.studentFilter !== 'ALL') {
+                const s = allStudents.find(x => x.id === meta.studentFilter);
+                studentPart = s ? sanitizeForFile(s.name) : 'Alumno';
+            }
+            const authFilePart = {
+                ALL: 'Todas',
+                authorized: 'Autorizadas',
+                denied: 'Denegadas',
+                notrequested: 'NoSolicito'
+            }[meta.authFilter] || 'Todas';
+            const fileName = `Informe_Intervalo_${datePart}_${groupPart}_${intervalPart}_${studentPart}_${authFilePart}`;
+
+            // CSS autocontenido (similar al de printTimeSlotReport pero con clases .rti-*)
+            const style = document.createElement('style');
+            style.innerHTML = `
+                @page { size: A4; margin: 1.5cm; }
+                #print-area { position: static !important; top: auto !important; left: auto !important; width: 100% !important; display: block !important; background: white !important; }
+                .rti-header { text-align: center; margin-bottom: 20px; font-family: sans-serif; }
+                .rti-title { font-size: 24px; font-weight: bold; margin-bottom: 5px; color: #1f2937; }
+                .rti-subtitle { font-size: 13px; color: #4b5563; margin-bottom: 20px; }
+                .rti-stats { display: flex; justify-content: center; gap: 12px; margin-bottom: 24px; font-family: sans-serif; flex-wrap: wrap; }
+                .rti-stat-box { border: 1px solid #e5e7eb; padding: 12px 20px; border-radius: 8px; text-align: center; flex: 1; min-width: 120px; max-width: 180px; }
+                .rti-stat-label { font-size: 11px; text-transform: uppercase; font-weight: bold; color: #6b7280; }
+                .rti-stat-value { font-size: 26px; font-weight: 900; margin-top: 4px; }
+                .rti-stat-total .rti-stat-value { color: #2563eb; }
+                .rti-stat-auth .rti-stat-value { color: #16a34a; }
+                .rti-stat-denied .rti-stat-value { color: #dc2626; }
+                .rti-stat-unique .rti-stat-value { color: #d97706; }
+                .rti-section-title { font-size: 16px; font-weight: bold; color: #1f2937; margin-top: 10px; margin-bottom: 10px; padding-bottom: 6px; border-bottom: 2px solid #1f2937; font-family: sans-serif; }
+                .rti-table { width: 100%; border-collapse: collapse; font-family: sans-serif; margin-bottom: 20px; }
+                .rti-table th { background-color: #f9fafb; padding: 8px; border-bottom: 2px solid #e5e7eb; text-align: left; font-size: 11px; text-transform: uppercase; color: #4b5563; }
+                .rti-table td { padding: 8px; border-bottom: 1px solid #e5e7eb; font-size: 12px; color: #1f2937; }
+                .rti-status-auth { color: #15803d; font-weight: bold; }
+                .rti-status-den { color: #b91c1c; font-weight: bold; }
+                .rti-status-none { color: #6b7280; }
+                .rti-sub { color: #6b7280; font-size: 11px; }
+                /* Alumnado repetido (menos alumnos distintos que salidas en el periodo) */
+                .rti-row-repeat { background-color: #fffbeb; }
+                .rti-badge-repeat { display: inline-block; margin-left: 6px; padding: 1px 6px; border-radius: 9999px; background-color: #fde68a; color: #78350f; font-weight: bold; font-size: 10px; border: 1px solid #f59e0b; vertical-align: middle; white-space: nowrap; }
+                .rti-repeat-note { font-family: sans-serif; font-size: 11px; color: #92400e; background-color: #fef3c7; border: 1px solid #fcd34d; border-radius: 6px; padding: 8px 10px; margin-bottom: 12px; }
+            `;
+            printArea.appendChild(style);
+
+            // Recalcular stats desde los logs
+            const reqLogs = filteredLogs.filter(l => l.requested);
+            const authLogs = reqLogs.filter(l => l.authorized);
+            const denLogs = reqLogs.filter(l => !l.authorized);
+            const uniqueStudentIds = new Set(filteredLogs.map(l => l.studentId));
+            // Alumnado repetido: si hay menos alumnos distintos que salidas totales,
+            // alguno ha ido mas de una vez; se resalta en el PDF igual que en pantalla.
+            const repeatedStudents = computeRepeatedStudents(filteredLogs);
+
+            // Ordenar logs por fecha y luego por hora de registro
+            const sorted = [...filteredLogs].sort((a, b) => {
+                const da = a.dateString || '';
+                const db = b.dateString || '';
+                if (da !== db) return da < db ? -1 : 1;
+                return (a.timestamp || 0) - (b.timestamp || 0);
+            });
+
+            // Nota explicativa solo cuando hay alumnado repetido
+            let repeatNoteHtml = '';
+            if (repeatedStudents.size > 0) {
+                const topRepeatPdf = [...repeatedStudents.values()].sort((a, b) => b.count - a.count)[0];
+                repeatNoteHtml =
+                    `<p class="rti-repeat-note"><b>${repeatedStudents.size}</b> alumno(s) han ido <b>más de una vez</b> al servicio en este periodo ` +
+                    `(${filteredLogs.length} salidas · ${uniqueStudentIds.size} alumnos distintos). ` +
+                    `Las filas resaltadas en ámbar son de alumnado repetido; el distintivo ×N indica su número de salidas. ` +
+                    `Máximo: <b>${escapeHtml(topRepeatPdf.name)}</b> con ${topRepeatPdf.count} salidas.</p>`;
+            }
+
+            let contentHtml = `
+                <div class="rti-header">
+                    <div class="rti-title">Informe por Intervalo Horario</div>
+                    <div class="rti-subtitle">${subtitle}</div>
+                </div>
+                <div class="rti-stats">
+                    <div class="rti-stat-box rti-stat-total"><div class="rti-stat-label">Salidas</div><div class="rti-stat-value">${filteredLogs.length}</div></div>
+                    <div class="rti-stat-box rti-stat-auth"><div class="rti-stat-label">Autorizadas</div><div class="rti-stat-value">${authLogs.length}</div></div>
+                    <div class="rti-stat-box rti-stat-denied"><div class="rti-stat-label">Denegadas</div><div class="rti-stat-value">${denLogs.length}</div></div>
+                    <div class="rti-stat-box rti-stat-unique"><div class="rti-stat-label">Alumnado único</div><div class="rti-stat-value">${uniqueStudentIds.size}</div></div>
+                </div>
+                <div class="rti-section-title">Listado de salidas al servicio</div>
+                ${repeatNoteHtml}
+                <table class="rti-table">
+                    <thead>
+                        <tr>
+                            <th>Alumno</th>
+                            <th>Unidad</th>
+                            ${multiDay ? '<th>Fecha</th>' : ''}
+                            <th>Hora</th>
+                            <th>Estado</th>
+                            <th>Por</th>
+                        </tr>
+                    </thead>
+                    <tbody>`;
+
+            sorted.forEach(l => {
+                const d = new Date(l.timestamp);
+                const timeStr = d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+                const dateCell = multiDay ? `<td>${formatDateEs(l.dateString)}</td>` : '';
+
+                let statusHtml;
+                if (!l.requested) {
+                    statusHtml = '<span class="rti-status-none">No solicitó</span>';
+                } else if (l.authorized) {
+                    statusHtml = '<span class="rti-status-auth">Autorizada</span>';
+                } else {
+                    statusHtml = '<span class="rti-status-den">Denegada</span>';
+                }
+                const userHtml = l.userName ? escapeHtml(l.userName) : '—';
+
+                // Alumno repetido (2+ salidas en el periodo): fila ambar + badge ×N
+                const repeatKey = l.studentId || ('name:' + (l.studentName || 'Alumno desconocido'));
+                const repeatInfo = repeatedStudents.get(repeatKey);
+                const rowClassPdf = repeatInfo ? ' class="rti-row-repeat"' : '';
+                const nameCellPdf = repeatInfo
+                    ? `${escapeHtml(l.studentName || 'Alumno desconocido')}<span class="rti-badge-repeat" title="Ha ido ${repeatInfo.count} veces al servicio en este periodo">×${repeatInfo.count}</span>`
+                    : escapeHtml(l.studentName || 'Alumno desconocido');
+
+                contentHtml += `<tr${rowClassPdf}>
+                    <td>${nameCellPdf}</td>
+                    <td>${escapeHtml(l.course || '-')}</td>
+                    ${dateCell}
+                    <td>${timeStr}</td>
+                    <td>${statusHtml}</td>
+                    <td><span class="rti-sub">${userHtml}</span></td>
+                </tr>`;
+            });
+            contentHtml += `</tbody></table>`;
+
+            const content = document.createElement('div');
+            content.innerHTML = contentHtml;
+            printArea.appendChild(content);
+
+            // Imprimir con el mismo mecanismo que printReport (iframe para móvil)
+            const originalTitle = document.title;
+            document.title = fileName;
+
+            startPrintWithCleanup(printArea, originalTitle);
+        }
+        window.printIntervalReport = printIntervalReport;
 
         // ================= UTILIDADES =================
 
@@ -6670,6 +7593,33 @@ ${stylesStr}
             }, 8000);
         }
         window.showToastWithAction = showToastWithAction;
+
+        // ================= CHIP DE VERSIÓN DESPLEGADA =================
+        // Muestra junto al título «Pisaporte V2» la versión indicada en el service
+        // worker (CACHE_NAME, p. ej. «mmo-v2.35» -> chip «v2.35»). Se descarga el
+        // propio sw.js con cache: 'no-store' para reflejar siempre la versión
+        // desplegada en ese momento (no una copia en caché HTTP). Si sw.js no es
+        // accesible (p. ej. sin conexión), el chip permanece oculto.
+        async function renderAppVersionChip() {
+            const chip = document.getElementById('app-version-chip');
+            if (!chip) return;
+            try {
+                const res = await fetch('sw.js', { cache: 'no-store' });
+                if (!res.ok) return;
+                const m = /CACHE_NAME\s*=\s*['"]([^'"]+)['"]/.exec(await res.text());
+                if (!m) return;
+                // Extraer la versión del nombre de caché: la parte posterior a «-v»
+                // (nomenclatura actual «mmo-vX.Y»; también funciona con la antigua
+                // «qr-scanner-vN»).
+                const version = m[1].split('-v').pop();
+                chip.textContent = `v${version}`;
+                chip.classList.remove('hidden');
+            } catch (e) {
+                // sw.js no disponible: dejar el chip oculto
+            }
+        }
+        renderAppVersionChip();
+        window.renderAppVersionChip = renderAppVersionChip;
 
         // ================= MODO DIAGNOSTICO (?debug=1) =================
         // Panel flotante para depurar desde el propio iPhone (Safari de escritorio

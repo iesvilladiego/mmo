@@ -1,4 +1,4 @@
-const CACHE_NAME = 'qr-scanner-v57';
+const CACHE_NAME = 'mmo-v2.36';
 const urlsToCache = [
     '/',
     '/index.html',
@@ -22,7 +22,7 @@ self.addEventListener('activate', event => {
     event.waitUntil(
         caches.keys().then(names => {
             return Promise.all(
-                names.filter(name => name !== CACHE_NAME && name.startsWith('qr-scanner-'))
+                names.filter(name => name !== CACHE_NAME && (name.startsWith('mmo-v') || name.startsWith('qr-scanner-')))
                     .map(name => caches.delete(name))
             );
         })
