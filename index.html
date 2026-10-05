@@ -103,8 +103,9 @@
             body.h-screen { height: 100dvh !important; }
         }
         /* FIX iOS PWA: con la status bar translucida, respetar las safe-area
-           del notch (solo aplican en pantalla de inicio / horizontal). */
-        #main-header { padding-top: env(safe-area-inset-top); }
+           del notch (solo aplican en pantalla de inicio / horizontal).
+           max() garantiza un padding minimo tambien sin notch. */
+        #main-header { padding-top: max(0.5rem, env(safe-area-inset-top)); }
         #main-nav { padding-bottom: env(safe-area-inset-bottom); }
 
         /* Ocultar barra de scroll pero mantener funcionalidad */
@@ -222,34 +223,35 @@
         <p class="text-gray-500 mt-2">Conectando a base de datos...</p>
     </div>
 
-    <!-- App Header -->
-    <header id="main-header" class="bg-blue-600 text-white shadow-md p-4 justify-between items-center z-10 sticky top-0 no-print" style="display: none;">
-        <h1 class="text-xl font-bold flex items-center gap-2">
-            <i class="fa-solid fa-id-badge"></i> Pisaporte V2
+    <!-- App Header (responsivo: en movil las dos filas pueden envolver en vez
+         de desbordar; el padding superior lo fija #main-header con safe-area) -->
+    <header id="main-header" class="bg-blue-600 text-white shadow-md px-3 pb-2 sm:px-4 sm:pb-3 flex-wrap items-center justify-between gap-x-3 gap-y-2 z-10 sticky top-0 no-print" style="display: none;">
+        <h1 class="text-lg sm:text-xl font-bold flex items-center gap-2">
+            <i class="fa-solid fa-id-badge shrink-0"></i> Pisaporte V2
             <!-- Chip con la version desplegada (leida del CACHE_NAME del service worker;
                  oculto hasta que la version resuelve, p. ej. sin conexion) -->
-            <span id="app-version-chip" class="hidden text-[10px] font-semibold leading-4 bg-blue-700 px-2 py-0.5 rounded-md border border-blue-400/60" title="Versión desplegada (CACHE_NAME del service worker)">v—</span>
+            <span id="app-version-chip" class="hidden text-[10px] font-semibold leading-4 bg-blue-700 px-2 py-0.5 rounded-md border border-blue-400/60 shrink-0" title="Versión desplegada (CACHE_NAME del service worker)">v—</span>
         </h1>
-        <div class="flex items-center gap-3">
+        <div class="flex items-center gap-1.5 sm:gap-3 flex-wrap sm:flex-nowrap min-w-0">
             <!-- Pill informativa del curso escolar activo.
                  Para admin: clicable, lleva a la vista de gestión de cursos.
                  Para tutor/profesor: solo informativa (no puede cambiar de curso). -->
             <button id="school-year-pill" onclick="onSchoolYearPillClick()"
-                class="hidden items-center gap-1.5 bg-blue-700 hover:bg-blue-800 text-white text-xs font-semibold rounded-md px-2.5 py-1 border border-blue-500 transition-colors"
+                class="hidden items-center gap-1.5 bg-blue-700 hover:bg-blue-800 text-white text-xs font-semibold rounded-md px-2.5 py-1 border border-blue-500 transition-colors shrink-0"
                 title="Curso escolar activo">
                 <i class="fa-solid fa-calendar-days text-blue-200 text-sm"></i>
-                <span id="school-year-pill-label">—</span>
+                <span id="school-year-pill-label" class="whitespace-nowrap">—</span>
                 <i class="fa-solid fa-gear text-[10px] text-blue-200 hidden" id="school-year-pill-gear"></i>
             </button>
-            <span id="current-user-name" class="text-xs font-semibold bg-blue-700 px-2 py-1 rounded-md">Usuario</span>
+            <span id="current-user-name" class="min-w-0 max-w-[36vw] sm:max-w-none truncate text-xs font-semibold bg-blue-700 px-2 py-1 rounded-md">Usuario</span>
             <!-- Descarga del manual de uso correspondiente al perfil conectado -->
-            <button onclick="downloadManual()" class="text-white hover:text-gray-200" title="Descargar el manual de uso de mi perfil">
+            <button onclick="downloadManual()" class="w-8 h-8 inline-flex items-center justify-center rounded-md shrink-0 text-white hover:bg-blue-700 transition-colors" title="Descargar el manual de uso de mi perfil">
                 <i class="fa-solid fa-book-open"></i>
             </button>
-            <button onclick="openChangePasswordModal()" class="text-white hover:text-gray-200" title="Cambiar mi contraseña">
+            <button onclick="openChangePasswordModal()" class="w-8 h-8 inline-flex items-center justify-center rounded-md shrink-0 text-white hover:bg-blue-700 transition-colors" title="Cambiar mi contraseña">
                 <i class="fa-solid fa-key"></i>
             </button>
-            <button onclick="logout()" class="text-white hover:text-gray-200" title="Cerrar sesión">
+            <button onclick="logout()" class="w-8 h-8 inline-flex items-center justify-center rounded-md shrink-0 text-white hover:bg-blue-700 transition-colors" title="Cerrar sesión">
                 <i class="fa-solid fa-right-from-bracket"></i>
             </button>
         </div>
