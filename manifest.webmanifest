@@ -2,9 +2,9 @@
   "name": "Pisaporte V2 - Control de Servicios",
   "short_name": "Pisaporte V2",
   "description": "Aplicacion PWA para el control de acceso al servicio del alumnado en el instituto de secundaria.",
-  "id": "/MMOV2/",
-  "start_url": "/MMOV2/",
-  "scope": "/MMOV2/",
+  "id": "./",
+  "start_url": "./",
+  "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
   "theme_color": "#ea580c",
@@ -97,7 +97,7 @@
       "name": "Registrar acceso",
       "short_name": "Acceso",
       "description": "Registra la entrada/salida de un alumno",
-      "url": "/MMOV2/?action=access",
+      "url": "./?action=access",
       "icons": [
         {
           "src": "icons/icon-96x96.png",
@@ -109,7 +109,7 @@
       "name": "Listado de alumnos",
       "short_name": "Alumnos",
       "description": "Consulta el listado y estado de los alumnos",
-      "url": "/MMOV2/?action=students",
+      "url": "./?action=students",
       "icons": [
         {
           "src": "icons/icon-96x96.png",
