@@ -1,11 +1,10 @@
 const CACHE_NAME = 'mmo-v2.40';
+// app.js/styles.css/firebase-config.js no existen en /mmo/ (el index es
+// autocontenido) y el manifest de esta app es manifest.webmanifest.
 const urlsToCache = [
-    '/',
-    '/index.html',
-    '/styles.css',
-    '/app.js',
-    '/firebase-config.js',
-    '/manifest.json',
+    './',
+    './index.html',
+    './manifest.webmanifest',
     'https://unpkg.com/html5-qrcode'
 ];
 
